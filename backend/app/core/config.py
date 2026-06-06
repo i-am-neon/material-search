@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     embedding_service_url: AnyHttpUrl | None = Field(
         default=None, validation_alias="EMBEDDING_SERVICE_URL"
     )
+    sam3_service_url: AnyHttpUrl | None = Field(default=None, validation_alias="SAM3_SERVICE_URL")
     embedding_model_id: str = Field(
         default=DEFAULT_EMBEDDING_MODEL_ID, validation_alias="EMBEDDING_MODEL_ID"
     )
@@ -30,8 +31,18 @@ class Settings(BaseSettings):
     catalog_image_bucket: str = Field(
         default="catalog-images", validation_alias="CATALOG_IMAGE_BUCKET"
     )
+    uploaded_image_bucket: str = Field(
+        default="uploaded-images", validation_alias="UPLOADED_IMAGE_BUCKET"
+    )
+    generated_artifact_bucket: str = Field(
+        default="generated-artifacts", validation_alias="GENERATED_ARTIFACT_BUCKET"
+    )
+    supabase_url: AnyHttpUrl | None = Field(default=None, validation_alias="SUPABASE_URL")
+    supabase_service_role_key: str = Field(
+        default="", validation_alias="SUPABASE_SERVICE_ROLE_KEY"
+    )
 
-    @field_validator("embedding_service_url", mode="before")
+    @field_validator("embedding_service_url", "sam3_service_url", "supabase_url", mode="before")
     @classmethod
     def empty_url_is_none(cls, value: Any) -> Any:
         if value == "":

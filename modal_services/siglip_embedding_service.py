@@ -1,9 +1,8 @@
+import os
 from functools import lru_cache
 from io import BytesIO
-import os
 
 import modal
-
 
 MODEL_ID = "google/siglip2-so400m-patch14-384"
 DIMENSIONS = 1152

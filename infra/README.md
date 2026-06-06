@@ -9,6 +9,7 @@ Provider accounts, billing state, and secret values still live outside git.
 - **Supabase local/link config:** `supabase/config.toml`
 - **Render API service:** `render.yaml`
 - **Modal embedding service:** `modal_services/siglip_embedding_service.py`
+- **Modal SAM3 service:** `modal_services/sam3_segmentation_service.py`
 - **GitHub Pages UI deploy:** `.github/workflows/deploy-ui.yml`
 - **Catalog vector indexing job:** `.github/workflows/index-catalog.yml`
 - **Fly fallback API config:** `backend/fly.toml`
@@ -32,6 +33,7 @@ local commands and secret-sync scripts:
 ```dotenv
 DATABASE_URL=postgresql://...
 EMBEDDING_SERVICE_URL=https://...
+SAM3_SERVICE_URL=https://...
 GEMINI_API_KEY=...
 ```
 
@@ -66,6 +68,40 @@ Deploy after changing the service:
 
 ```bash
 .tools/modal-venv/bin/modal deploy modal_services/siglip_embedding_service.py
+```
+
+## Modal SAM3 Service
+
+Current Modal resources:
+
+- App: `material-search-sam3-segmentation`
+- Secret: `material-search-sam3-env`
+
+The endpoint implements:
+
+- `GET /healthz`
+- `POST /segment-image`
+
+The secret must include `HF_TOKEN` with accepted access to the gated
+`facebook/sam3` Hugging Face repo. Add Supabase storage values to the same
+secret when requests use `image_object_key` instead of direct `image_url`:
+
+```bash
+.tools/modal-venv/bin/modal secret create material-search-sam3-env \
+  HF_TOKEN="$HF_TOKEN" \
+  SUPABASE_URL="$SUPABASE_URL" \
+  SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+  SAM3_IMAGE_BUCKET=uploaded-images
+.tools/modal-venv/bin/modal deploy modal_services/sam3_segmentation_service.py
+```
+
+After deploy, set `SAM3_SERVICE_URL` in `backend/.env`, Render, and GitHub
+Actions secrets. Validate the real endpoint with:
+
+```bash
+cd backend
+set -a && source .env && set +a
+sam3-smoke-test
 ```
 
 Programmatic validation requires:

@@ -28,7 +28,7 @@ set_secret() {
 
 set_secret DATABASE_URL
 set_secret EMBEDDING_SERVICE_URL
+set_secret SAM3_SERVICE_URL
 set_secret GEMINI_API_KEY
 
 gh secret list --repo "$REPO"
-

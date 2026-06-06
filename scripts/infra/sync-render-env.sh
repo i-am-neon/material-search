@@ -83,8 +83,8 @@ NODE
 
 set_render_env DATABASE_URL
 set_render_env EMBEDDING_SERVICE_URL
+set_render_env SAM3_SERVICE_URL
 set_render_env GEMINI_API_KEY
 set_render_env EMBEDDING_MODEL_ID
 set_render_env EMBEDDING_DIMENSIONS
 set_render_env CATALOG_IMAGE_BUCKET
-

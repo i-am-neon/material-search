@@ -7,6 +7,7 @@ dependencies = [
   "dramatiq[redis]>=1.17.0",
   "fastapi>=0.115.0",
   "httpx>=0.27.0",
+  "pillow>=10.4.0",
   "psycopg[binary]>=3.2.0",
   "pydantic>=2.8.0",
   "pydantic-settings>=2.4.0",
@@ -17,6 +18,7 @@ dependencies = [
 [project.scripts]
 catalog-index-missing = "app.catalog.index_missing:main"
 catalog-load-seed = "app.catalog.load_seed:main"
+sam3-smoke-test = "app.model_services.sam3_smoke:main"
 
 [project.optional-dependencies]
 dev = [

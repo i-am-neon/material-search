@@ -4,6 +4,7 @@ from app.model_services.embeddings import (
     HttpEmbeddingClient,
     MissingEmbeddingClient,
 )
+from app.model_services.segmentation import HttpSam3Client, MissingSam3Client, Sam3Client
 
 
 def get_embedding_client() -> EmbeddingClient:
@@ -12,3 +13,9 @@ def get_embedding_client() -> EmbeddingClient:
         return MissingEmbeddingClient()
     return HttpEmbeddingClient(str(settings.embedding_service_url))
 
+
+def get_sam3_client() -> Sam3Client:
+    settings = get_settings()
+    if settings.sam3_service_url is None:
+        return MissingSam3Client()
+    return HttpSam3Client(str(settings.sam3_service_url))

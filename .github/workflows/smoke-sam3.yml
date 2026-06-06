@@ -1,0 +1,45 @@
+name: Smoke SAM3
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: Text prompt to segment
+        default: shoe
+        required: true
+      min_regions:
+        description: Minimum region count expected
+        default: "1"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      SAM3_SERVICE_URL: ${{ secrets.SAM3_SERVICE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install backend
+        run: pip install .
+
+      - name: Segment public smoke image
+        run: >
+          sam3-smoke-test
+          --prompt "${{ inputs.prompt }}"
+          --min-regions "${{ inputs.min_regions }}"

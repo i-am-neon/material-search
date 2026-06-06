@@ -8,7 +8,7 @@ FastAPI and Dramatiq services for the catalog and vector-enrichment slice.
 cd backend
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+uv pip install --python .venv/bin/python -e ".[dev]"
 ```
 
 Create `backend/.env`. For this interview project, local development and prod
@@ -20,9 +20,16 @@ IPv6-only and is less reliable from local machines and CI:
 DATABASE_URL=postgresql://postgres.project-ref:password@aws-0-region.pooler.supabase.com:6543/postgres
 REDIS_URL=redis://default:password@host:6379
 EMBEDDING_SERVICE_URL=https://modal-embedding-service.example.com
+SAM3_SERVICE_URL=https://modal-sam3-service.example.com
 EMBEDDING_MODEL_ID=google/siglip2-so400m-patch14-384
 EMBEDDING_DIMENSIONS=1152
 GEMINI_API_KEY=
+SUPABASE_PROJECT_REF=project-ref
+SUPABASE_URL=https://project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=
+CATALOG_IMAGE_BUCKET=catalog-images
+UPLOADED_IMAGE_BUCKET=uploaded-images
+GENERATED_ARTIFACT_BUCKET=generated-artifacts
 ```
 
 Apply the Supabase migration in `../supabase/migrations/0001_catalog_vector_enrichment.sql`
@@ -46,10 +53,13 @@ buckets exist:
 For the free-tier path, deploy the frontend through GitHub Pages and deploy the
 API only if it needs to be publicly reachable. The repo includes a root
 `render.yaml` blueprint for a Render Free web service. Set the same
-`DATABASE_URL` and `EMBEDDING_SERVICE_URL` values from `backend/.env` in Render.
+`DATABASE_URL`, `EMBEDDING_SERVICE_URL`, and `SAM3_SERVICE_URL` values from
+`backend/.env` in Render.
 Current Render API URL: `https://material-search-api.onrender.com`.
 Current Modal embedding URL:
 `https://tommy-4187--material-search-siglip-embeddings-fastapi-app.modal.run`.
+Current Modal SAM3 URL: deploy `../modal_services/sam3_segmentation_service.py`
+and set `SAM3_SERVICE_URL` to the resulting `fastapi_app.modal.run` endpoint.
 
 Catalog vector enrichment does not require a long-lived
 queue worker. Run it as a one-off command locally or through the manual
@@ -67,6 +77,7 @@ The GitHub Action needs these repository secrets:
 
 - `DATABASE_URL`
 - `EMBEDDING_SERVICE_URL`
+- `SAM3_SERVICE_URL`
 
 The future Gemini planning/orchestration path also needs:
 
@@ -96,6 +107,7 @@ flyctl secrets set \
   DATABASE_URL="$DATABASE_URL" \
   REDIS_URL="$REDIS_URL" \
   EMBEDDING_SERVICE_URL="$EMBEDDING_SERVICE_URL" \
+  SAM3_SERVICE_URL="$SAM3_SERVICE_URL" \
   EMBEDDING_MODEL_ID="$EMBEDDING_MODEL_ID" \
   EMBEDDING_DIMENSIONS="$EMBEDDING_DIMENSIONS" \
   CATALOG_IMAGE_BUCKET="$CATALOG_IMAGE_BUCKET" \
@@ -110,6 +122,53 @@ uvicorn app.main:app --reload
 dramatiq app.workers.catalog_indexing
 ```
 
+## Test
+
+From the repo root, use the wrapper so commands always resolve the backend
+virtualenv correctly:
+
+```bash
+scripts/test-backend.sh
+scripts/test-backend.sh tests/test_region_matching.py
+```
+
+The backend virtualenv lives at `backend/.venv`; avoid relying on bare `pytest`
+being available on the shell PATH.
+
+## SAM3 segmentation service
+
+The SAM3 service is a Modal GPU FastAPI app in
+`../modal_services/sam3_segmentation_service.py`. It uses the official
+`facebookresearch/sam3` package and downloads the gated `facebook/sam3`
+checkpoint from Hugging Face, so the Modal secret must include a token that has
+accepted access to the model repo:
+
+```bash
+.tools/modal-venv/bin/modal secret create material-search-sam3-env \
+  HF_TOKEN="$HF_TOKEN" \
+  SUPABASE_URL="$SUPABASE_URL" \
+  SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+  SAM3_IMAGE_BUCKET=uploaded-images
+.tools/modal-venv/bin/modal deploy ../modal_services/sam3_segmentation_service.py
+```
+
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SAM3_IMAGE_BUCKET` are only
+needed when segmenting storage object keys. Direct `image_url` requests do not
+need Supabase credentials.
+
+Run a real smoke test against the configured Modal endpoint:
+
+```bash
+cd backend
+set -a && source .env && set +a
+sam3-smoke-test
+```
+
+The default smoke uses Meta's public SAM3 example image with the prompt `shoe`
+and fails unless the configured endpoint returns at least one region. The manual
+`Smoke SAM3` GitHub Action runs the same command using the `SAM3_SERVICE_URL`
+repository secret.
+
 ## Catalog flow
 
 1. `POST /catalog/items` stores product metadata and image object keys.
@@ -117,6 +176,14 @@ dramatiq app.workers.catalog_indexing
 3. The `catalog-indexing` Dramatiq actor calls the embedding service and upserts a
    `{ catalog_item_id, model_id, dimensions, embedding }` row.
 4. `POST /catalog/vector-search` runs nearest-neighbor search through pgvector.
+
+## Segment-to-catalog flow
+
+`POST /search/segment-matches` takes an uploaded image object key or direct image
+URL plus a material prompt. The API asks SAM3 for regions, crops each returned
+region, uploads the crop to the generated-artifacts bucket, signs the crop URL,
+embeds that crop with SigLIP, stores run/region/match rows in Postgres, and
+returns ranked catalog matches from pgvector.
 
 ## One-time starter catalog load
 

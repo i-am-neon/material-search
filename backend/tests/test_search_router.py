@@ -1,0 +1,231 @@
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
+
+from fastapi.testclient import TestClient
+
+from app.catalog.dependencies import get_catalog_repository
+from app.catalog.schemas import CatalogItem, CatalogMatch
+from app.main import create_app
+from app.model_services.embeddings import ImageEmbedding
+from app.model_services.factory import get_embedding_client, get_sam3_client
+from app.model_services.segmentation import SegmentationRegion, SegmentationResult
+from app.search.artifacts import RegionArtifact, get_region_artifact_store
+from app.search.dependencies import get_search_run_repository
+from app.search.schemas import (
+    MaterialSearchMatchRecord,
+    MaterialSearchRegionRecord,
+    MaterialSearchRun,
+    SegmentMatchRequest,
+)
+
+
+class FakeSam3Client:
+    def segment_image(self, **kwargs) -> SegmentationResult:
+        return SegmentationResult(
+            model_id="facebook/sam3",
+            image_width=320,
+            image_height=240,
+            prompt=kwargs["prompt"],
+            regions=[
+                SegmentationRegion(
+                    id="sam3_region_0",
+                    prompt=kwargs["prompt"],
+                    score=0.93,
+                    box_xyxy=[1.0, 2.0, 101.0, 122.0],
+                )
+            ],
+        )
+
+
+class FakeArtifactStore:
+    def create_region_crop(self, **kwargs) -> RegionArtifact:
+        region = kwargs["region"]
+        return RegionArtifact(
+            object_key=f"runs/{kwargs['run_id']}/regions/{region.id}/crop.jpg",
+            signed_url=f"https://example.com/signed/{region.id}.jpg",
+            width=100,
+            height=120,
+        )
+
+
+class FakeEmbeddingClient:
+    def embed_image(
+        self, *, image_object_key: str, image_url: str | None, model_id: str, dimensions: int
+    ) -> ImageEmbedding:
+        return ImageEmbedding(
+            model_id=model_id,
+            dimensions=dimensions,
+            embedding=[0.1] * dimensions,
+        )
+
+
+class FakeCatalogRepository:
+    def create_item(self, item):
+        raise NotImplementedError
+
+    def list_items(self, limit: int = 100, offset: int = 0):
+        raise NotImplementedError
+
+    def get_item(self, catalog_item_id: UUID):
+        raise NotImplementedError
+
+    def list_items_missing_embedding(self, *, model_id: str, dimensions: int, limit: int = 500):
+        raise NotImplementedError
+
+    def count_items_missing_embedding(self, *, model_id: str, dimensions: int):
+        raise NotImplementedError
+
+    def upsert_embedding(self, **kwargs):
+        raise NotImplementedError
+
+    def search_by_embedding(
+        self, *, embedding: list[float], model_id: str, limit: int, min_similarity: float
+    ) -> list[CatalogMatch]:
+        return [CatalogMatch(item=make_item(), model_id=model_id, similarity=0.9)]
+
+
+class FakeSearchRunRepository:
+    def create_run(self, request: SegmentMatchRequest) -> MaterialSearchRun:
+        now = datetime.now(UTC)
+        return MaterialSearchRun(
+            id=request.run_id or uuid4(),
+            prompt=request.prompt,
+            source_image_object_key=request.image_object_key,
+            source_image_url=request.image_url,
+            status="running",
+            error=None,
+            image_width=None,
+            image_height=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+    def complete_run(
+        self, *, run_id: UUID, image_width: int, image_height: int
+    ) -> MaterialSearchRun:
+        now = datetime.now(UTC)
+        return MaterialSearchRun(
+            id=run_id,
+            prompt="upholstery",
+            source_image_object_key=None,
+            source_image_url="https://example.com/room.jpg",
+            status="completed",
+            error=None,
+            image_width=image_width,
+            image_height=image_height,
+            created_at=now,
+            updated_at=now,
+        )
+
+    def fail_run(self, *, run_id: UUID, error: str) -> MaterialSearchRun:
+        now = datetime.now(UTC)
+        return MaterialSearchRun(
+            id=run_id,
+            prompt="upholstery",
+            source_image_object_key=None,
+            source_image_url="https://example.com/room.jpg",
+            status="failed",
+            error=error,
+            image_width=None,
+            image_height=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+    def create_region(
+        self,
+        *,
+        run_id: UUID,
+        region: SegmentationRegion,
+        artifact: RegionArtifact,
+        embedding_model_id: str,
+        embedding_dimensions: int,
+    ) -> MaterialSearchRegionRecord:
+        now = datetime.now(UTC)
+        return MaterialSearchRegionRecord(
+            id=uuid4(),
+            run_id=run_id,
+            source_region_id=region.id,
+            prompt=region.prompt,
+            score=region.score,
+            box_xyxy=region.box_xyxy,
+            mask=None,
+            crop_object_key=artifact.object_key,
+            crop_width=artifact.width,
+            crop_height=artifact.height,
+            embedding_model_id=embedding_model_id,
+            embedding_dimensions=embedding_dimensions,
+            status="matched",
+            created_at=now,
+            updated_at=now,
+        )
+
+    def replace_region_matches(
+        self,
+        *,
+        run_id: UUID,
+        region_id: UUID,
+        matches,
+    ) -> list[MaterialSearchMatchRecord]:
+        now = datetime.now(UTC)
+        return [
+            MaterialSearchMatchRecord(
+                id=uuid4(),
+                run_id=run_id,
+                region_id=region_id,
+                catalog_item_id=match.match.item.id,
+                embedding_model_id=match.match.model_id,
+                similarity=match.match.similarity,
+                rank=match.rank,
+                created_at=now,
+            )
+            for match in matches
+        ]
+
+
+def test_segment_matches_endpoint_returns_region_catalog_matches():
+    app = create_app()
+    app.dependency_overrides[get_catalog_repository] = lambda: FakeCatalogRepository()
+    app.dependency_overrides[get_region_artifact_store] = lambda: FakeArtifactStore()
+    app.dependency_overrides[get_sam3_client] = lambda: FakeSam3Client()
+    app.dependency_overrides[get_embedding_client] = lambda: FakeEmbeddingClient()
+    app.dependency_overrides[get_search_run_repository] = lambda: FakeSearchRunRepository()
+    run_id = uuid4()
+
+    response = TestClient(app).post(
+        "/search/segment-matches",
+        json={
+            "run_id": str(run_id),
+            "image_url": "https://example.com/room.jpg",
+            "prompt": "upholstery",
+            "model_id": "test-model",
+            "dimensions": 3,
+            "matches_per_region": 1,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run_id"] == str(run_id)
+    assert payload["regions"][0]["region"]["id"] == "sam3_region_0"
+    assert (
+        payload["regions"][0]["crop_object_key"]
+        == f"runs/{run_id}/regions/sam3_region_0/crop.jpg"
+    )
+    assert payload["regions"][0]["matches"][0]["rank"] == 1
+    assert payload["regions"][0]["matches"][0]["match"]["item"]["name"] == "Warm Gray Boucle"
+
+
+def make_item() -> CatalogItem:
+    now = datetime.now(UTC)
+    return CatalogItem(
+        id=uuid4(),
+        manufacturer="Acme Materials",
+        name="Warm Gray Boucle",
+        material_family="textile",
+        image_object_key="catalog/acme/warm-gray-boucle.jpg",
+        image_url=None,
+        metadata={},
+        created_at=now,
+        updated_at=now,
+    )

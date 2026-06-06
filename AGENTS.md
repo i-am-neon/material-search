@@ -30,6 +30,13 @@ Build incrementally from the target architecture, starting with project scaffold
 - Start with a few hand-authored evals later; future product signals should create eval candidates, not automatic ground truth.
 - For demo simplicity, development and production share the same real service keys and infrastructure values. Do not add fake, deterministic, stubbed, or local-only model/data paths for dev convenience unless the user explicitly asks for a test-only harness. Catalog vector creation and similar workflows should use the real production model services and persisted production-style data paths.
 
+## Test Commands
+
+- Backend Python tooling lives in `backend/.venv`; do not assume `pytest` or `ruff` are on the shell PATH.
+- Run backend tests from the repo root with `scripts/test-backend.sh`. Pass normal pytest args through that wrapper, for example `scripts/test-backend.sh tests/test_region_matching.py`.
+- If backend dependencies are missing or stale, refresh the venv with `cd backend && uv pip install --python .venv/bin/python -e ".[dev]"`.
+- For direct backend commands, prefer `backend/.venv/bin/python -m pytest` and `backend/.venv/bin/ruff` over bare executable names.
+
 ## Frontend UI Guidance
 
 - Whenever updating the UI, treat Storybook as a source of truth for the intended component states and user flows. Add or update stories alongside UI changes so the workbench, region review, matching, failure, and cart states remain easy to inspect independently of the app route.
