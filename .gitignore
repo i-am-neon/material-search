@@ -1,0 +1,19 @@
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.egg-info/
+
+# Frontend
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Local config
+.env
+.env.*
+!.env.example
