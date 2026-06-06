@@ -123,6 +123,8 @@ User request:
 Rules:
 - Produce 1 to 5 targets, with the most important first.
 - Across all targets, expect at most {max_regions} final regions.
+- If the user request is not asking for material search or material matching,
+  set is_material_search to false, explain unsupported_reason, and return no targets.
 - sam3_prompt must be short and visual, such as "green woven upholstery" or
   "matte gray stone floor".
 - Do not invent product IDs, boxes, similarity scores, or catalog matches.
@@ -131,6 +133,8 @@ Rules:
 JSON shape:
 {{
   "user_intent_summary": "short summary",
+  "is_material_search": true,
+  "unsupported_reason": null,
   "avoid": ["constraint or attribute to avoid"],
   "targets": [
     {{
@@ -168,6 +172,14 @@ def _strip_json_fence(text: str) -> str:
 
 
 def _normalize_plan(plan: MaterialSearchPlan, *, max_regions: int) -> MaterialSearchPlan:
+    if not plan.is_material_search:
+        return plan.model_copy(
+            update={
+                "avoid": [item.strip() for item in plan.avoid if item.strip()],
+                "targets": [],
+            }
+        )
+
     seen: set[str] = set()
     targets = []
     remaining_regions = max_regions

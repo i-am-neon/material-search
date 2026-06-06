@@ -1,15 +1,8 @@
 import json
 import re
 
-import pytest
-
 from app.model_services.planning import GeminiMaterialPlannerClient
 from app.search.schemas import SegmentMatchRequest
-
-# Future planner eval:
-# - non-material intent, such as "match the lamp shape"; the current plan schema
-#   requires at least one material target, so unsupported intent needs a product
-#   response shape before this can become a passing eval.
 
 
 class FakeResponse:
@@ -163,15 +156,13 @@ def test_planner_eval_negative_constraints_are_preserved(monkeypatch):
     assert_segmentable_prompt(plan.targets[0].sam3_prompt)
 
 
-@pytest.mark.xfail(
-    reason="Unsupported non-material intent needs a planner response shape with zero targets.",
-    strict=True,
-)
 def test_planner_eval_non_material_intent_declines_unsupported_retrieval(monkeypatch):
     plan = _plan_from_model_payload(
         monkeypatch,
         {
             "user_intent_summary": "The request is about lamp shape, not material matching.",
+            "is_material_search": False,
+            "unsupported_reason": "Lamp shape matching is not a material search.",
             "avoid": [],
             "targets": [],
         },
@@ -179,6 +170,8 @@ def test_planner_eval_non_material_intent_declines_unsupported_retrieval(monkeyp
         max_regions=2,
     )
 
+    assert plan.is_material_search is False
+    assert plan.unsupported_reason == "Lamp shape matching is not a material search."
     assert plan.targets == []
 
 

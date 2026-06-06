@@ -132,7 +132,7 @@ export function SearchWorkbench({ initialScenario = "complete" }: SearchWorkbenc
         return;
       }
       setRunResult(result);
-      setSelectedRegionId(result.regions[0]?.region.id ?? regions[0].id);
+      setSelectedRegionId(result.regions[0]?.result_region_id ?? regions[0].id);
       setScenario("complete");
     } catch (runError) {
       if (runSequence !== runSequenceRef.current) {
@@ -258,11 +258,11 @@ async function fileFromSample(sample: SampleImageOption): Promise<File> {
 }
 
 function mapRunRegions(result: SegmentMatchResponse): MaterialRegion[] {
-  return result.regions.map(({ region }, index) => {
+  return result.regions.map(({ region, result_region_id }, index) => {
     const [x0, y0, x1, y1] = region.box_xyxy;
     const confidence = confidenceLabel(region.score);
     return {
-      id: region.id,
+      id: result_region_id,
       label: result.regions[index].target_label ?? `Region ${index + 1}`,
       material: result.regions[index].target_label ?? region.prompt,
       confidence,
@@ -281,7 +281,7 @@ function mapRunRegions(result: SegmentMatchResponse): MaterialRegion[] {
 }
 
 function mapRunMatches(result: SegmentMatchResponse, regionId: string): ProductMatch[] {
-  const matchSet = result.regions.find((candidate) => candidate.region.id === regionId);
+  const matchSet = result.regions.find((candidate) => candidate.result_region_id === regionId);
   if (!matchSet) {
     return [];
   }

@@ -298,11 +298,12 @@ def test_segment_matches_endpoint_returns_region_catalog_matches():
     assert response.status_code == 200
     payload = response.json()
     assert payload["run_id"] == str(run_id)
+    assert payload["regions"][0]["result_region_id"] == "upholstery__sam3_region_0"
     assert payload["regions"][0]["region"]["id"] == "sam3_region_0"
     assert payload["regions"][0]["target_id"] == "upholstery"
     assert (
         payload["regions"][0]["crop_object_key"]
-        == f"runs/{run_id}/regions/sam3_region_0/crop.jpg"
+        == f"runs/{run_id}/regions/upholstery__sam3_region_0/crop.jpg"
     )
     assert payload["regions"][0]["matches"][0]["rank"] == 1
     assert payload["regions"][0]["matches"][0]["match"]["item"]["name"] == "Warm Gray Boucle"
@@ -355,6 +356,7 @@ def test_get_search_run_status_returns_completed_result():
         image_height=240,
         regions=[
             SegmentRegionMatchSet(
+                result_region_id="upholstery__sam3_region_0",
                 region=SegmentationRegion(
                     id="sam3_region_0",
                     prompt="upholstery",

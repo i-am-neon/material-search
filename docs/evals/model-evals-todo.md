@@ -6,7 +6,7 @@ Use this as the expansion list after the first demo-grade piece tests are in pla
 
 - Added hand-authored prompt/image cases for vague intent, such as "materials with this warm hospitality feel".
 - Added negative constraint cases, such as "like the floor but less glossy", and assert constraints are preserved in `plan.avoid`.
-- Added an expected-failure eval for non-material intent, such as "match the lamp shape"; the planner schema still needs an unsupported-intent response shape.
+- Added a non-material intent eval, such as "match the lamp shape", using the unsupported-intent planner response shape.
 - Added over-segmentation guard cases that verify the planner respects `max_regions`.
 - Added prompt-quality assertions that `sam3_prompt` values are short, visual, and segmentable.
 - Added stable target-id checks for repeated or overlapping labels.
