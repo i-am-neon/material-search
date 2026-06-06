@@ -20,6 +20,7 @@ Run these from the repo root:
 ```bash
 scripts/infra/check-supabase-prod.sh
 scripts/infra/sync-github-secrets.sh
+scripts/infra/sync-render-env.sh
 scripts/infra/validate-render-blueprint.sh
 ```
 
@@ -72,6 +73,13 @@ Programmatic validation requires:
 - a logged-in Render CLI, or
 - `RENDER_API_KEY` plus `RENDER_OWNER_ID`
 
+Sync Render service environment variables from `backend/.env`:
+
+```bash
+scripts/infra/sync-render-env.sh
+render deploys create srv-d8i45j58nd3s73e1u29g --wait --confirm
+```
+
 `RENDER_OWNER_ID` is the workspace ID from Render workspace settings. You can
 also list it after setting `RENDER_API_KEY`:
 
@@ -84,4 +92,4 @@ curl -fsSL https://api.render.com/v1/owners \
 ## Current External Inputs
 
 - `RENDER_API_KEY` is required only for GitHub Actions to validate Render
-  resources. Local validation works with `render login`.
+  resources long-term. Local validation works with `render login`.

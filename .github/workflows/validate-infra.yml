@@ -44,4 +44,5 @@ jobs:
           test -f supabase/migrations/0001_catalog_vector_enrichment.sql
           test -x scripts/infra/check-supabase-prod.sh
           test -x scripts/infra/sync-github-secrets.sh
+          test -x scripts/infra/sync-render-env.sh
           test -x scripts/infra/validate-render-blueprint.sh
