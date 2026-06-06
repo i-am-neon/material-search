@@ -92,3 +92,17 @@ button { font-family: inherit; }
 .form-error { color: #9a3434; font-size: 13px; margin: 12px 4px 0; }
 
 @media (max-width: 880px) { .intake-body { grid-template-columns: 1fr; gap: 32px; } }
+
+/* ---- Transition: Analysis reveal ---- */
+.analysis { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; }
+.analysis-stage { position: relative; width: min(760px, 100%); border-radius: 18px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 30px 60px -34px rgba(0, 0, 0, 0.5); background: var(--paper-2); aspect-ratio: 3 / 2; }
+.analysis-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.analysis-stage.scanning img { filter: grayscale(0.2) contrast(1.02); }
+.scan-line { position: absolute; top: 0; bottom: 0; width: 36%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent); mix-blend-mode: overlay; animation: scan-sweep 1.8s ease-in-out infinite; }
+@keyframes scan-sweep { 0% { transform: translateX(-60%); } 100% { transform: translateX(280%); } }
+.analysis-caption { position: absolute; left: 0; right: 0; bottom: 0; padding: 22px 26px; background: linear-gradient(0deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0)); }
+.analysis-eyebrow { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-3); font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+.analysis-eyebrow.error { color: #9a3434; }
+.analysis-caption h2 { font-size: 24px; margin: 6px 0 4px; }
+.analysis-caption p { font-size: 14px; color: var(--ink-2); margin: 0; }
+.analysis-actions { display: flex; gap: 10px; margin-top: 14px; }
