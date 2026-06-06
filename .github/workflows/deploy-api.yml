@@ -22,7 +22,7 @@ jobs:
       DEFAULT_RENDER_SERVICE_ID: srv-d8i45j58nd3s73e1u29g
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Trigger Render deploy
         id: trigger
