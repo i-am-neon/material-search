@@ -20,6 +20,7 @@ REDIS_URL=redis://localhost:6379/0
 EMBEDDING_SERVICE_URL=http://localhost:8081
 EMBEDDING_MODEL_ID=google/siglip2-so400m-patch14-384
 EMBEDDING_DIMENSIONS=1152
+GEMINI_API_KEY=
 ```
 
 Apply the Supabase migration in `../supabase/migrations/0001_catalog_vector_enrichment.sql`.
@@ -59,6 +60,10 @@ The GitHub Action needs these repository secrets:
 
 - `DATABASE_URL`
 - `EMBEDDING_SERVICE_URL`
+
+The future Gemini planning/orchestration path also needs:
+
+- `GEMINI_API_KEY`
 
 `REDIS_URL` is optional for this path. Use direct Upstash Free Redis only if the
 API needs to enqueue async jobs. Upstash Free currently gives enough room for

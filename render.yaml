@@ -12,10 +12,11 @@ services:
         sync: false
       - key: EMBEDDING_SERVICE_URL
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
       - key: EMBEDDING_MODEL_ID
         value: google/siglip2-so400m-patch14-384
       - key: EMBEDDING_DIMENSIONS
         value: "1152"
       - key: CATALOG_IMAGE_BUCKET
         value: catalog-images
-

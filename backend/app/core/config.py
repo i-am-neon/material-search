@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     embedding_dimensions: int = Field(
         default=DEFAULT_EMBEDDING_DIMENSIONS, validation_alias="EMBEDDING_DIMENSIONS"
     )
+    gemini_api_key: str = Field(default="", validation_alias="GEMINI_API_KEY")
 
     catalog_image_bucket: str = Field(
         default="catalog-images", validation_alias="CATALOG_IMAGE_BUCKET"
