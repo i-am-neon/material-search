@@ -19,6 +19,7 @@ dependencies = [
 [project.scripts]
 catalog-index-missing = "app.catalog.index_missing:main"
 catalog-load-seed = "app.catalog.load_seed:main"
+production-smoke-test = "app.search.production_smoke:main"
 sam3-smoke-test = "app.model_services.sam3_smoke:main"
 
 [project.optional-dependencies]

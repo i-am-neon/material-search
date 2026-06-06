@@ -140,7 +140,7 @@ class SupabaseRegionArtifactStore(RegionArtifactStore):
             raise RuntimeError("Supabase did not return a signed URL for the region crop")
         if signed_url.startswith("http://") or signed_url.startswith("https://"):
             return signed_url
-        return f"{self.supabase_url}{signed_url}"
+        return f"{self.supabase_url}/storage/v1{signed_url}"
 
     def _object_url(self, bucket: str, object_key: str) -> str:
         return f"{self.supabase_url}/storage/v1/object/{bucket}/{_quote_key(object_key)}"

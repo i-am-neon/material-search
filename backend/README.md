@@ -170,6 +170,22 @@ and fails unless the configured endpoint returns at least one region. The manual
 `Smoke SAM3` GitHub Action runs the same command using the `SAM3_SERVICE_URL`
 repository secret.
 
+## Production segment-match smoke
+
+After the catalog has at least one indexed embedding, run the combined real
+smoke against Supabase Storage, Postgres/pgvector, Modal SAM3, and Modal SigLIP:
+
+```bash
+cd backend
+set -a && source .env && set +a
+production-smoke-test
+```
+
+The command creates and completes a real `material_search_runs` row, uploads a
+generated crop under `generated-artifacts/runs/...`, signs that crop for SigLIP,
+and requires at least one pgvector match. It prints a compact JSON summary with
+the persisted `run_id` and top match, but omits signed crop URLs.
+
 ## Catalog flow
 
 1. `POST /catalog/items` stores product metadata and image object keys.
