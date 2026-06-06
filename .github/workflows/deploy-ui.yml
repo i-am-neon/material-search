@@ -3,9 +3,6 @@ name: Deploy UI
 on:
   push:
     branches: [main]
-    paths:
-      - ".github/workflows/deploy-ui.yml"
-      - "frontend/**"
   workflow_dispatch:
 
 permissions:

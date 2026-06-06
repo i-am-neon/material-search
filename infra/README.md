@@ -11,6 +11,9 @@ Provider accounts, billing state, and secret values still live outside git.
 - **Modal embedding service:** `modal_services/siglip_embedding_service.py`
 - **Modal SAM3 service:** `modal_services/sam3_segmentation_service.py`
 - **GitHub Pages UI deploy:** `.github/workflows/deploy-ui.yml`
+- **Render API deploy:** `.github/workflows/deploy-api.yml`
+- **Modal service deploys:** `.github/workflows/deploy-modal-services.yml`
+- **Supabase migration deploys:** `.github/workflows/deploy-supabase-migrations.yml`
 - **Catalog vector indexing job:** `.github/workflows/index-catalog.yml`
 - **Fly fallback API config:** `backend/fly.toml`
 
@@ -35,6 +38,7 @@ DATABASE_URL=postgresql://...
 EMBEDDING_SERVICE_URL=https://...
 SAM3_SERVICE_URL=https://...
 GEMINI_API_KEY=...
+RENDER_API_KEY=...
 ```
 
 ## Render
@@ -50,6 +54,16 @@ Current Render resources:
 - API service: `material-search-api`
 - Service ID: `srv-d8i45j58nd3s73e1u29g`
 - URL: `https://material-search-api.onrender.com`
+
+Every push to `main` redeploys the API through
+`.github/workflows/deploy-api.yml`. The workflow triggers a Render deploy for
+the pushed commit, waits for the deploy to become live, and then checks
+`/healthz`.
+
+Required GitHub configuration:
+
+- Secret: `RENDER_API_KEY`
+- Variable: `RENDER_SERVICE_ID` (`srv-d8i45j58nd3s73e1u29g`)
 
 ## Modal Embedding Service
 
@@ -69,6 +83,9 @@ Deploy after changing the service:
 ```bash
 .tools/modal-venv/bin/modal deploy modal_services/siglip_embedding_service.py
 ```
+
+Every push to `main` redeploys this service through
+`.github/workflows/deploy-modal-services.yml`.
 
 ## Modal SAM3 Service
 
@@ -95,6 +112,12 @@ secret when requests use `image_object_key` instead of direct `image_url`:
 .tools/modal-venv/bin/modal deploy modal_services/sam3_segmentation_service.py
 ```
 
+The same Modal deploy workflow also redeploys SAM3. It requires these GitHub
+secrets:
+
+- `MODAL_TOKEN_ID`
+- `MODAL_TOKEN_SECRET`
+
 After deploy, set `SAM3_SERVICE_URL` in `backend/.env`, Render, and GitHub
 Actions secrets. Validate the real endpoint with:
 
@@ -116,6 +139,30 @@ scripts/infra/sync-render-env.sh
 render deploys create srv-d8i45j58nd3s73e1u29g --wait --confirm
 ```
 
+## Supabase Migrations
+
+Every push to `main` applies migrations through
+`.github/workflows/deploy-supabase-migrations.yml`. The workflow applies each
+migration with `psql -v ON_ERROR_STOP=1`, so migrations must stay idempotent.
+
+Required GitHub secret:
+
+- `DATABASE_URL`
+
+## UI Deploy
+
+Pushes to `main` always redeploy the GitHub Pages UI through
+`.github/workflows/deploy-ui.yml`, using the Render API URL as
+`VITE_API_BASE_URL`.
+
+## Async Search Runs
+
+The durable `/search/runs` path still needs a cloud Redis URL and a running
+Dramatiq worker service. The current Render account has only the free web API
+service; Render background workers require a paid worker plan. Until Redis and a
+worker are provisioned, `/search/segment-matches` is the deployed synchronous
+demo path and `/search/runs` should be expected to return queue unavailable.
+
 `RENDER_OWNER_ID` is the workspace ID from Render workspace settings. You can
 also list it after setting `RENDER_API_KEY`:
 
@@ -127,5 +174,5 @@ curl -fsSL https://api.render.com/v1/owners \
 
 ## Current External Inputs
 
-- `RENDER_API_KEY` is required only for GitHub Actions to validate Render
-  resources long-term. Local validation works with `render login`.
+- `RENDER_API_KEY` is required for GitHub Actions to validate Render resources
+  and redeploy the API. Local validation works with `render login`.
