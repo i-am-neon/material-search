@@ -39,10 +39,18 @@ Render's recommended IaC path is a Blueprint backed by `render.yaml`. The
 Blueprint defines the free API web service and prompts for secret values marked
 with `sync: false`.
 
+Current Render resources:
+
+- Workspace: `Tommy's workspace`
+- Workspace ID: `tea-d51hqoali9vc73e1h3vg`
+- API service: `material-search-api`
+- Service ID: `srv-d8i45j58nd3s73e1u29g`
+- URL: `https://material-search-api.onrender.com`
+
 Programmatic validation requires:
 
-- `RENDER_API_KEY`
-- `RENDER_OWNER_ID`
+- a logged-in Render CLI, or
+- `RENDER_API_KEY` plus `RENDER_OWNER_ID`
 
 `RENDER_OWNER_ID` is the workspace ID from Render workspace settings. You can
 also list it after setting `RENDER_API_KEY`:
@@ -56,6 +64,5 @@ curl -fsSL https://api.render.com/v1/owners \
 ## Current External Inputs
 
 - `EMBEDDING_SERVICE_URL` is still required before vector indexing can run.
-- `RENDER_API_KEY` and `RENDER_OWNER_ID` are required only if we want to validate
-  or create Render resources programmatically instead of through the dashboard.
-
+- `RENDER_API_KEY` is required only for GitHub Actions to validate Render
+  resources. Local validation works with `render login`.

@@ -3,13 +3,18 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
+if command -v render >/dev/null 2>&1 && render workspace current >/dev/null 2>&1; then
+  render blueprints validate render.yaml --output json
+  exit 0
+fi
+
 if [[ -z "${RENDER_API_KEY:-}" ]]; then
-  echo "RENDER_API_KEY is required" >&2
+  echo "RENDER_API_KEY is required when Render CLI is not logged in" >&2
   exit 1
 fi
 
 if [[ -z "${RENDER_OWNER_ID:-}" ]]; then
-  echo "RENDER_OWNER_ID is required" >&2
+  echo "RENDER_OWNER_ID is required when Render CLI is not logged in" >&2
   echo "List owners with: curl -H \"Authorization: Bearer \\$RENDER_API_KEY\" https://api.render.com/v1/owners" >&2
   exit 1
 fi
@@ -31,4 +36,3 @@ process.stdin.on("end", () => {
   if (!result.valid) process.exit(1);
 });
 '
-
