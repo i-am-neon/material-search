@@ -184,3 +184,7 @@ button { font-family: inherit; }
 
 /* screen-reader utility */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+.brand-glyph { display: inline-flex; color: var(--ink); }
+.topnav a { display: inline-flex; align-items: center; gap: 6px; }
+.topnav-cart { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); }
