@@ -118,3 +118,12 @@ button { font-family: inherit; }
 .region .tag { position: absolute; top: -12px; left: 8px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; background: rgba(255, 255, 255, 0.94); color: var(--ink-2); padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
 .region.sel { border-color: #fff; box-shadow: 0 0 0 2px var(--ink), 0 14px 30px rgba(0, 0, 0, 0.4); background: rgba(25, 25, 25, 0.14); }
 .region.sel .tag { background: var(--ink); color: #fff; }
+
+/* ---- Studio: surface selector ---- */
+.surfaces { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.surf { display: flex; align-items: center; gap: 9px; border: 1px solid var(--line); background: var(--card); border-radius: 100px; padding: 7px 14px 7px 8px; font-size: 13px; color: var(--ink-2); cursor: pointer; transition: 0.15s; }
+.surf-sw { width: 18px; height: 18px; border-radius: 5px; background-size: cover; background-position: center; }
+.surf-label { font-weight: 500; }
+.surf-count { font-size: 11px; color: var(--ink-3); }
+.surf.active { border-color: var(--ink); color: #fff; background: var(--ink); box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.5); }
+.surf.active .surf-count { color: rgba(255, 255, 255, 0.6); }
