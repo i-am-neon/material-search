@@ -166,12 +166,16 @@ Render API service with the Key Value internal connection string. Do not copy a
 local `REDIS_URL` from `backend/.env` into Render unless it points at the
 Render Key Value instance.
 
-A free Render background worker could not be created. Render accepted the free
-Key Value instance, but rejected/failed the `background_worker` service creation
-attempt with the free plan. Until a paid worker plan or another free long-lived
-worker host is provisioned, `/search/runs` can enqueue and return `202`, but
-runs remain `queued`. `/search/segment-matches` remains the deployed
-synchronous demo path.
+To keep the demo totally free, the Render web service starts both the API and a
+single low-concurrency Dramatiq worker through `backend/scripts/render-web.sh`.
+This avoids a paid Render `background_worker` service while still letting
+`/search/runs` enqueue and complete jobs.
+
+A separate free Render background worker could not be created. Render accepted
+the free Key Value instance, but rejected/failed the `background_worker` service
+creation attempt with the free plan. The co-located worker is good enough for a
+demo, but it shares CPU/memory with the API and only runs while the free web
+service is awake.
 
 `RENDER_OWNER_ID` is the workspace ID from Render workspace settings. You can
 also list it after setting `RENDER_API_KEY`:
