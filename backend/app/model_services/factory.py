@@ -23,7 +23,12 @@ def get_sam3_client() -> Sam3Client:
     settings = get_settings()
     if settings.sam3_service_url is None:
         return MissingSam3Client()
-    return HttpSam3Client(str(settings.sam3_service_url))
+    return HttpSam3Client(
+        str(settings.sam3_service_url),
+        supabase_url=str(settings.supabase_url) if settings.supabase_url else None,
+        service_role_key=settings.supabase_service_role_key,
+        uploaded_image_bucket=settings.uploaded_image_bucket,
+    )
 
 
 def get_material_planner_client() -> MaterialPlannerClient:
