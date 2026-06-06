@@ -40,9 +40,11 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
   const [error, setError] = React.useState<string | null>(null);
   const previewObjectUrlRef = React.useRef<string | null>(null);
   const runSequenceRef = React.useRef(0);
+  const selectionSeqRef = React.useRef(0);
 
   React.useEffect(() => {
     return () => {
+      runSequenceRef.current = -1; // invalidate any in-flight run so it can't setState after unmount
       if (previewObjectUrlRef.current) URL.revokeObjectURL(previewObjectUrlRef.current);
     };
   }, []);
@@ -92,6 +94,7 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
   };
 
   const selectFile = (file: File) => {
+    selectionSeqRef.current += 1;
     setSelectedFile(file);
     setSelectedFileName(file.name);
     resetForNewImage();
@@ -102,8 +105,10 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
 
   const selectSample = async (sample: SampleImageOption) => {
     setError(null);
+    const seq = (selectionSeqRef.current += 1);
     try {
       const file = await fileFromSample(sample);
+      if (seq !== selectionSeqRef.current) return; // a newer selection superseded this one
       setSelectedFile(file);
       setSelectedFileName(sample.name);
       resetForNewImage();
@@ -113,6 +118,7 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
       }
       setPreviewUrl(sample.src);
     } catch {
+      if (seq !== selectionSeqRef.current) return;
       setError("Could not load the sample image. Try uploading your own image.");
     }
   };
@@ -210,16 +216,17 @@ async function pollSearchRun(runId: string, intervalMs: number): Promise<Segment
 }
 
 function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function mapRunRegions(result: SegmentMatchResponse): MaterialRegion[] {
-  return result.regions.map(({ region }, index) => {
+  return result.regions.map((matchSet, index) => {
+    const { region } = matchSet;
     const [x0, y0, x1, y1] = region.box_xyxy;
     return {
       id: region.id,
-      label: result.regions[index].target_label ?? `Region ${index + 1}`,
-      material: result.regions[index].target_label ?? region.prompt,
+      label: matchSet.target_label ?? `Region ${index + 1}`,
+      material: matchSet.target_label ?? region.prompt,
       confidence: confidenceLabel(region.score),
       box: {
         left: percent(x0, result.image_width),
