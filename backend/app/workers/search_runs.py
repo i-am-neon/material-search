@@ -14,7 +14,7 @@ from app.search.service import SegmentCatalogMatchService
 from app.workers import broker as _broker  # noqa: F401
 
 
-@dramatiq.actor(queue_name="search-runs", max_retries=3)
+@dramatiq.actor(queue_name="search-runs", max_retries=0)
 def process_search_run(payload: dict) -> None:
     request = SegmentMatchRequest.model_validate(payload)
     run_search(request)
@@ -30,7 +30,7 @@ def run_search(request: SegmentMatchRequest) -> None:
         existing_run = search_run_repository.get_run(request.run_id)
         if existing_run is None:
             raise ValueError(f"Material search run {request.run_id} does not exist")
-        if existing_run.status == "completed":
+        if existing_run.status in {"completed", "failed"}:
             return
 
         SegmentCatalogMatchService(
