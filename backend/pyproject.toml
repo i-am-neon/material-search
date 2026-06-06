@@ -16,6 +16,7 @@ dependencies = [
 
 [project.scripts]
 catalog-index-missing = "app.catalog.index_missing:main"
+catalog-load-seed = "app.catalog.load_seed:main"
 
 [project.optional-dependencies]
 dev = [

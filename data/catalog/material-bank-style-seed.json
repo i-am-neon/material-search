@@ -1,0 +1,772 @@
+{
+  "items": [
+    {
+      "manufacturer": "Interface",
+      "name": "Hard Truth - Linen",
+      "material_family": "carpet",
+      "image_object_key": "catalog/interface/hard-truth-linen.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/112/102351975.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/interface-hard-truth-2901974",
+        "colorway": "Linen",
+        "collection": "Surface Matters",
+        "image_kind": "square_material_swatch",
+        "materials": ["carpet", "flooring", "modular carpet"],
+        "visual_tags": ["warm neutral", "tufted", "textured loop", "non-directional"]
+      }
+    },
+    {
+      "manufacturer": "Interface",
+      "name": "Hard Truth - Cocoa",
+      "material_family": "carpet",
+      "image_object_key": "catalog/interface/hard-truth-cocoa.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/112/102351976.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/interface-hard-truth-cocoa-2901976",
+        "colorway": "Cocoa",
+        "collection": "Surface Matters",
+        "image_kind": "square_material_swatch",
+        "materials": ["carpet", "flooring", "modular carpet"],
+        "visual_tags": ["brown", "tufted", "textured loop", "non-directional"]
+      }
+    },
+    {
+      "manufacturer": "Interface",
+      "name": "Hard Truth - Steel",
+      "material_family": "carpet",
+      "image_object_key": "catalog/interface/hard-truth-steel.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/112/102351977.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/interface-hard-truth-steel-2901977",
+        "colorway": "Steel",
+        "collection": "Surface Matters",
+        "image_kind": "square_material_swatch",
+        "materials": ["carpet", "flooring", "modular carpet"],
+        "visual_tags": ["gray", "tufted", "textured loop", "commercial flooring"]
+      }
+    },
+    {
+      "manufacturer": "Interface",
+      "name": "Hard Truth - Limestone",
+      "material_family": "carpet",
+      "image_object_key": "catalog/interface/hard-truth-limestone.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/112/102351978.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/interface-hard-truth-limestone-2901978",
+        "colorway": "Limestone",
+        "collection": "Surface Matters",
+        "image_kind": "square_material_swatch",
+        "materials": ["carpet", "flooring", "modular carpet"],
+        "visual_tags": ["light neutral", "textured", "soft floor", "speckled"]
+      }
+    },
+    {
+      "manufacturer": "Interface",
+      "name": "Hard Truth - Flint",
+      "material_family": "carpet",
+      "image_object_key": "catalog/interface/hard-truth-flint.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/112/102351979.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/interface-hard-truth-flint-2901979",
+        "colorway": "Flint",
+        "collection": "Surface Matters",
+        "image_kind": "square_material_swatch",
+        "materials": ["carpet", "flooring", "modular carpet"],
+        "visual_tags": ["charcoal", "gray", "tufted", "textured loop"]
+      }
+    },
+    {
+      "manufacturer": "Interface",
+      "name": "Hard Truth - Eucalyptus",
+      "material_family": "carpet",
+      "image_object_key": "catalog/interface/hard-truth-eucalyptus.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/112/102351980.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/interface-hard-truth-eucalyptus-2901980",
+        "colorway": "Eucalyptus",
+        "collection": "Surface Matters",
+        "image_kind": "square_material_swatch",
+        "materials": ["carpet", "flooring", "modular carpet"],
+        "visual_tags": ["green", "muted", "tufted", "biophilic"]
+      }
+    },
+    {
+      "manufacturer": "Interface",
+      "name": "Hard Truth - Concrete",
+      "material_family": "carpet",
+      "image_object_key": "catalog/interface/hard-truth-concrete.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/112/102351982.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/interface-hard-truth-concrete-2901982",
+        "colorway": "Concrete",
+        "collection": "Surface Matters",
+        "image_kind": "square_material_swatch",
+        "materials": ["carpet", "flooring", "modular carpet"],
+        "visual_tags": ["cool gray", "urban", "textured", "soft floor"]
+      }
+    },
+    {
+      "manufacturer": "Interface",
+      "name": "Hard Truth - Indigo",
+      "material_family": "carpet",
+      "image_object_key": "catalog/interface/hard-truth-indigo.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/112/102351986.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/interface-hard-truth-indigo-2901986",
+        "colorway": "Indigo",
+        "collection": "Surface Matters",
+        "image_kind": "square_material_swatch",
+        "materials": ["carpet", "flooring", "modular carpet"],
+        "visual_tags": ["blue", "deep tone", "tufted", "textured loop"]
+      }
+    },
+    {
+      "manufacturer": "Matter Surfaces",
+      "name": "Trilogy Tile - Abalone",
+      "material_family": "entry_carpet",
+      "image_object_key": "catalog/matter-surfaces/trilogy-tile-abalone.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10539/101609201.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/matter-surfaces-trilogy-tile-2198884",
+        "colorway": "Abalone",
+        "collection": "Arrival Collection",
+        "image_kind": "square_material_swatch",
+        "materials": ["carpet", "flooring", "entrance carpet"],
+        "visual_tags": ["walk-off", "ribbed", "textured", "commercial entry"]
+      }
+    },
+    {
+      "manufacturer": "Matter Surfaces",
+      "name": "Trilogy Tile - Cremini",
+      "material_family": "entry_carpet",
+      "image_object_key": "catalog/matter-surfaces/trilogy-tile-cremini.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10539/101609165.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/matter-surfaces-trilogy-tile-cremini-2198886",
+        "colorway": "Cremini",
+        "collection": "Arrival Collection",
+        "image_kind": "square_material_swatch",
+        "materials": ["carpet", "flooring", "entrance carpet"],
+        "visual_tags": ["brown", "walk-off", "ribbed", "heavy texture"]
+      }
+    },
+    {
+      "manufacturer": "Matter Surfaces",
+      "name": "Trilogy Tile - Indigo",
+      "material_family": "entry_carpet",
+      "image_object_key": "catalog/matter-surfaces/trilogy-tile-indigo.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10539/101609202.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/matter-surfaces-trilogy-tile-indigo-2198887",
+        "colorway": "Indigo",
+        "collection": "Arrival Collection",
+        "image_kind": "square_material_swatch",
+        "materials": ["carpet", "flooring", "entrance carpet"],
+        "visual_tags": ["blue", "walk-off", "ribbed", "coarse texture"]
+      }
+    },
+    {
+      "manufacturer": "Matter Surfaces",
+      "name": "Trilogy Tile - Oyster",
+      "material_family": "entry_carpet",
+      "image_object_key": "catalog/matter-surfaces/trilogy-tile-oyster.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10539/101609170.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/matter-surfaces-trilogy-tile-oyster-2198888",
+        "colorway": "Oyster",
+        "collection": "Arrival Collection",
+        "image_kind": "square_material_swatch",
+        "materials": ["carpet", "flooring", "entrance carpet"],
+        "visual_tags": ["light neutral", "walk-off", "ribbed", "coarse"]
+      }
+    },
+    {
+      "manufacturer": "Matter Surfaces",
+      "name": "Trilogy Tile - Portabello",
+      "material_family": "entry_carpet",
+      "image_object_key": "catalog/matter-surfaces/trilogy-tile-portabello.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10539/101609181.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/matter-surfaces-trilogy-tile-portabello-2198889",
+        "colorway": "Portabello",
+        "collection": "Arrival Collection",
+        "image_kind": "square_material_swatch",
+        "materials": ["carpet", "flooring", "entrance carpet"],
+        "visual_tags": ["taupe", "walk-off", "ribbed", "commercial entry"]
+      }
+    },
+    {
+      "manufacturer": "KB Contract Textiles",
+      "name": "Jazmin - Wool",
+      "material_family": "textile",
+      "image_object_key": "catalog/kb-contract-textiles/jazmin-wool.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10173/101428130.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/kb-contract-textiles-jazmin-1978125",
+        "colorway": "Wool",
+        "collection": "Jazmin",
+        "image_kind": "square_material_swatch",
+        "materials": ["textile", "upholstery", "woven"],
+        "visual_tags": ["woven", "ombre", "stripe", "performance fabric"]
+      }
+    },
+    {
+      "manufacturer": "KB Contract Textiles",
+      "name": "Jazmin - Canyon",
+      "material_family": "textile",
+      "image_object_key": "catalog/kb-contract-textiles/jazmin-canyon.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10173/101428136.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/kb-contract-textiles-jazmin-canyon-1978136",
+        "colorway": "Canyon",
+        "collection": "Jazmin",
+        "image_kind": "square_material_swatch",
+        "materials": ["textile", "upholstery", "woven"],
+        "visual_tags": ["warm", "woven", "ombre", "stripe"]
+      }
+    },
+    {
+      "manufacturer": "KB Contract Textiles",
+      "name": "Jazmin - Sienna",
+      "material_family": "textile",
+      "image_object_key": "catalog/kb-contract-textiles/jazmin-sienna.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10173/101428141.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/kb-contract-textiles-jazmin-sienna-1978141",
+        "colorway": "Sienna",
+        "collection": "Jazmin",
+        "image_kind": "square_material_swatch",
+        "materials": ["textile", "upholstery", "woven"],
+        "visual_tags": ["rust", "woven", "ombre", "stripe"]
+      }
+    },
+    {
+      "manufacturer": "KB Contract Textiles",
+      "name": "Jazmin - Tropic",
+      "material_family": "textile",
+      "image_object_key": "catalog/kb-contract-textiles/jazmin-tropic.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10173/101428146.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/kb-contract-textiles-jazmin-tropic-1978146",
+        "colorway": "Tropic",
+        "collection": "Jazmin",
+        "image_kind": "square_material_swatch",
+        "materials": ["textile", "upholstery", "woven"],
+        "visual_tags": ["green", "woven", "ombre", "stripe"]
+      }
+    },
+    {
+      "manufacturer": "KB Contract Textiles",
+      "name": "Jazmin - Okra",
+      "material_family": "textile",
+      "image_object_key": "catalog/kb-contract-textiles/jazmin-okra.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10173/101428151.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/kb-contract-textiles-jazmin-okra-1978151",
+        "colorway": "Okra",
+        "collection": "Jazmin",
+        "image_kind": "square_material_swatch",
+        "materials": ["textile", "upholstery", "woven"],
+        "visual_tags": ["gold", "woven", "ombre", "stripe"]
+      }
+    },
+    {
+      "manufacturer": "KB Contract Textiles",
+      "name": "Jazmin - Azure",
+      "material_family": "textile",
+      "image_object_key": "catalog/kb-contract-textiles/jazmin-azure.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10173/101428156.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/kb-contract-textiles-jazmin-azure-1978156",
+        "colorway": "Azure",
+        "collection": "Jazmin",
+        "image_kind": "square_material_swatch",
+        "materials": ["textile", "upholstery", "woven"],
+        "visual_tags": ["blue", "woven", "ombre", "stripe"]
+      }
+    },
+    {
+      "manufacturer": "KB Contract Textiles",
+      "name": "Jazmin - Eclipse",
+      "material_family": "textile",
+      "image_object_key": "catalog/kb-contract-textiles/jazmin-eclipse.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10173/101428166.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/kb-contract-textiles-jazmin-eclipse-1978166",
+        "colorway": "Eclipse",
+        "collection": "Jazmin",
+        "image_kind": "square_material_swatch",
+        "materials": ["textile", "upholstery", "woven"],
+        "visual_tags": ["dark", "woven", "ombre", "stripe"]
+      }
+    },
+    {
+      "manufacturer": "KB Contract Textiles",
+      "name": "Jazmin - Alpaca",
+      "material_family": "textile",
+      "image_object_key": "catalog/kb-contract-textiles/jazmin-alpaca.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10173/101428176.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/kb-contract-textiles-jazmin-alpaca-1978176",
+        "colorway": "Alpaca",
+        "collection": "Jazmin",
+        "image_kind": "square_material_swatch",
+        "materials": ["textile", "upholstery", "woven"],
+        "visual_tags": ["neutral", "woven", "ombre", "stripe"]
+      }
+    },
+    {
+      "manufacturer": "Draper",
+      "name": "SheerWeave SW7100 RD - Beige Pearl Grey White",
+      "material_family": "shade_textile",
+      "image_object_key": "catalog/draper/sheerweave-sw7100-rd-beige-pearl-grey-white.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/11245/102168290.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/draper-sheerweave-sw7100-rd-2737096",
+        "colorway": "Beige/Pearl Grey/White",
+        "collection": "SheerWeave SW7100 RD",
+        "image_kind": "square_material_swatch",
+        "materials": ["textile", "window covering", "shade fabric"],
+        "visual_tags": ["woven", "room darkening", "fine texture", "neutral"]
+      }
+    },
+    {
+      "manufacturer": "Draper",
+      "name": "SheerWeave SW7100 RD - Colorway 102168289",
+      "material_family": "shade_textile",
+      "image_object_key": "catalog/draper/sheerweave-sw7100-rd-102168289.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/11245/102168289.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/draper-sheerweave-sw7100-rd-2737096",
+        "colorway": "102168289",
+        "collection": "SheerWeave SW7100 RD",
+        "image_kind": "square_material_swatch",
+        "materials": ["textile", "window covering", "shade fabric"],
+        "visual_tags": ["woven", "room darkening", "fine texture"]
+      }
+    },
+    {
+      "manufacturer": "Draper",
+      "name": "SheerWeave SW7100 RD - Colorway 102168291",
+      "material_family": "shade_textile",
+      "image_object_key": "catalog/draper/sheerweave-sw7100-rd-102168291.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/11245/102168291.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/draper-sheerweave-sw7100-rd-2737096",
+        "colorway": "102168291",
+        "collection": "SheerWeave SW7100 RD",
+        "image_kind": "square_material_swatch",
+        "materials": ["textile", "window covering", "shade fabric"],
+        "visual_tags": ["woven", "room darkening", "fine texture"]
+      }
+    },
+    {
+      "manufacturer": "Draper",
+      "name": "SheerWeave SW7100 RD - Colorway 102168292",
+      "material_family": "shade_textile",
+      "image_object_key": "catalog/draper/sheerweave-sw7100-rd-102168292.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/11245/102168292.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/draper-sheerweave-sw7100-rd-2737096",
+        "colorway": "102168292",
+        "collection": "SheerWeave SW7100 RD",
+        "image_kind": "square_material_swatch",
+        "materials": ["textile", "window covering", "shade fabric"],
+        "visual_tags": ["woven", "room darkening", "fine texture"]
+      }
+    },
+    {
+      "manufacturer": "Draper",
+      "name": "SheerWeave SW7100 RD - Colorway 102168293",
+      "material_family": "shade_textile",
+      "image_object_key": "catalog/draper/sheerweave-sw7100-rd-102168293.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/11245/102168293.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/draper-sheerweave-sw7100-rd-2737096",
+        "colorway": "102168293",
+        "collection": "SheerWeave SW7100 RD",
+        "image_kind": "square_material_swatch",
+        "materials": ["textile", "window covering", "shade fabric"],
+        "visual_tags": ["woven", "room darkening", "fine texture"]
+      }
+    },
+    {
+      "manufacturer": "Draper",
+      "name": "SheerWeave SW7100 RD - Colorway 102168294",
+      "material_family": "shade_textile",
+      "image_object_key": "catalog/draper/sheerweave-sw7100-rd-102168294.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/11245/102168294.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/draper-sheerweave-sw7100-rd-2737096",
+        "colorway": "102168294",
+        "collection": "SheerWeave SW7100 RD",
+        "image_kind": "square_material_swatch",
+        "materials": ["textile", "window covering", "shade fabric"],
+        "visual_tags": ["woven", "room darkening", "fine texture"]
+      }
+    },
+    {
+      "manufacturer": "Koroseal",
+      "name": "Sandscape - Tuxedo",
+      "material_family": "wallcovering",
+      "image_object_key": "catalog/koroseal/sandscape-tuxedo.jpg",
+      "image_url": "https://koroseal.asset.akeneo.cloud/thumbnails/media/sp81_01_sandscape_tuxedo_pvc_free_24x24.jpg",
+      "metadata": {
+        "source_platform": "manufacturer",
+        "source_url": "https://koroseal.com/products/wallcoverings/sandscape-pvc-free-type-ii/tuxedo",
+        "colorway": "Tuxedo",
+        "collection": "Sandscape PVC Free Type II",
+        "image_kind": "square_material_swatch",
+        "materials": ["wallcovering", "type ii", "pvc-free"],
+        "visual_tags": ["black", "textured", "fine grain", "commercial wallcovering"]
+      }
+    },
+    {
+      "manufacturer": "Koroseal",
+      "name": "Sandscape - Fog",
+      "material_family": "wallcovering",
+      "image_object_key": "catalog/koroseal/sandscape-fog.jpg",
+      "image_url": "https://koroseal.asset.akeneo.cloud/thumbnails/400thumbnail/sp81_02_sandscape_fog_pvc_free_24x24.png",
+      "metadata": {
+        "source_platform": "manufacturer",
+        "source_url": "https://koroseal.com/products/wallcoverings/sandscape-pvc-free-type-ii/tuxedo",
+        "colorway": "Fog",
+        "collection": "Sandscape PVC Free Type II",
+        "image_kind": "square_material_swatch",
+        "materials": ["wallcovering", "type ii", "pvc-free"],
+        "visual_tags": ["gray", "textured", "fine grain", "commercial wallcovering"]
+      }
+    },
+    {
+      "manufacturer": "Koroseal",
+      "name": "Sandscape - Blush",
+      "material_family": "wallcovering",
+      "image_object_key": "catalog/koroseal/sandscape-blush.jpg",
+      "image_url": "https://koroseal.asset.akeneo.cloud/thumbnails/400thumbnail/sp81_06_sandscape_blush_pvc_free_24x24.png",
+      "metadata": {
+        "source_platform": "manufacturer",
+        "source_url": "https://koroseal.com/products/wallcoverings/sandscape-pvc-free-type-ii/blush",
+        "colorway": "Blush",
+        "collection": "Sandscape PVC Free Type II",
+        "image_kind": "square_material_swatch",
+        "materials": ["wallcovering", "type ii", "pvc-free"],
+        "visual_tags": ["pink", "textured", "fine grain", "soft color"]
+      }
+    },
+    {
+      "manufacturer": "Koroseal",
+      "name": "Sandscape - Major Grey",
+      "material_family": "wallcovering",
+      "image_object_key": "catalog/koroseal/sandscape-major-grey.jpg",
+      "image_url": "https://koroseal.asset.akeneo.cloud/thumbnails/400thumbnail/sp81_07_sandscape_major_grey_pvc_free_24x24.png",
+      "metadata": {
+        "source_platform": "manufacturer",
+        "source_url": "https://koroseal.com/products/wallcoverings/sandscape-pvc-free-type-ii/tuxedo",
+        "colorway": "Major Grey",
+        "collection": "Sandscape PVC Free Type II",
+        "image_kind": "square_material_swatch",
+        "materials": ["wallcovering", "type ii", "pvc-free"],
+        "visual_tags": ["gray", "textured", "fine grain", "neutral wall"]
+      }
+    },
+    {
+      "manufacturer": "Koroseal",
+      "name": "Sandscape - Cobblestone",
+      "material_family": "wallcovering",
+      "image_object_key": "catalog/koroseal/sandscape-cobblestone.jpg",
+      "image_url": "https://koroseal.asset.akeneo.cloud/thumbnails/400thumbnail/sp81_11_sandscape_cobblestone_pvc_free_24x24.png",
+      "metadata": {
+        "source_platform": "manufacturer",
+        "source_url": "https://koroseal.com/products/wallcoverings/sandscape-pvc-free-type-ii/tuxedo",
+        "colorway": "Cobblestone",
+        "collection": "Sandscape PVC Free Type II",
+        "image_kind": "square_material_swatch",
+        "materials": ["wallcovering", "type ii", "pvc-free"],
+        "visual_tags": ["taupe", "textured", "fine grain", "neutral wall"]
+      }
+    },
+    {
+      "manufacturer": "Koroseal",
+      "name": "Sandscape - Seafoam",
+      "material_family": "wallcovering",
+      "image_object_key": "catalog/koroseal/sandscape-seafoam.jpg",
+      "image_url": "https://koroseal.asset.akeneo.cloud/thumbnails/400thumbnail/sp81_19_sandscape_seafoam_pvc_free_24x24.png",
+      "metadata": {
+        "source_platform": "manufacturer",
+        "source_url": "https://koroseal.com/products/wallcoverings/sandscape-pvc-free-type-ii/tuxedo",
+        "colorway": "Seafoam",
+        "collection": "Sandscape PVC Free Type II",
+        "image_kind": "square_material_swatch",
+        "materials": ["wallcovering", "type ii", "pvc-free"],
+        "visual_tags": ["green", "blue-green", "textured", "fine grain"]
+      }
+    },
+    {
+      "manufacturer": "Daltile",
+      "name": "Perpetuo - Timeless White",
+      "material_family": "tile",
+      "image_object_key": "catalog/daltile/perpetuo-timeless-white.jpg",
+      "image_url": "https://s7d9.scene7.com/is/image/daltile/DAL_PT20_24x24_TimelessWhite_POL_Silo_01_v2_web:Swatch",
+      "metadata": {
+        "source_platform": "manufacturer",
+        "source_url": "https://www.daltile.com/products/marble-look/perpetuo",
+        "colorway": "Timeless White",
+        "collection": "Perpetuo",
+        "image_kind": "square_material_swatch",
+        "materials": ["tile", "porcelain", "marble look"],
+        "visual_tags": ["white", "gray veining", "polished", "stone look"]
+      }
+    },
+    {
+      "manufacturer": "Daltile",
+      "name": "Perpetuo - Elegant Beige",
+      "material_family": "tile",
+      "image_object_key": "catalog/daltile/perpetuo-elegant-beige.jpg",
+      "image_url": "https://s7d9.scene7.com/is/image/daltile/DAL_PT22_24x24_ElegantBeige_POL_Silo_01_v2_web:Swatch",
+      "metadata": {
+        "source_platform": "manufacturer",
+        "source_url": "https://www.daltile.com/products/marble-look/perpetuo/elegant-beige",
+        "colorway": "Elegant Beige",
+        "collection": "Perpetuo",
+        "image_kind": "square_material_swatch",
+        "materials": ["tile", "porcelain", "marble look"],
+        "visual_tags": ["beige", "warm veining", "polished", "stone look"]
+      }
+    },
+    {
+      "manufacturer": "Daltile",
+      "name": "Perpetuo - Infinite Black",
+      "material_family": "tile",
+      "image_object_key": "catalog/daltile/perpetuo-infinite-black.jpg",
+      "image_url": "https://s7d9.scene7.com/is/image/daltile/DAL_PT24_24x24_InfiniteBlack_POL_Silo_01_v2_web:Swatch",
+      "metadata": {
+        "source_platform": "manufacturer",
+        "source_url": "https://www.daltile.com/products/marble-look/perpetuo",
+        "colorway": "Infinite Black",
+        "collection": "Perpetuo",
+        "image_kind": "square_material_swatch",
+        "materials": ["tile", "porcelain", "marble look"],
+        "visual_tags": ["black", "white veining", "polished", "dramatic"]
+      }
+    },
+    {
+      "manufacturer": "Daltile",
+      "name": "Perpetuo - Eternal Grey",
+      "material_family": "tile",
+      "image_object_key": "catalog/daltile/perpetuo-eternal-grey.jpg",
+      "image_url": "https://s7d9.scene7.com/is/image/daltile/DAL_PT23_24x24_EternalGrey_POL_Silo_01_v2_web:Swatch",
+      "metadata": {
+        "source_platform": "manufacturer",
+        "source_url": "https://www.daltile.com/products/marble-look/perpetuo",
+        "colorway": "Eternal Grey",
+        "collection": "Perpetuo",
+        "image_kind": "square_material_swatch",
+        "materials": ["tile", "porcelain", "marble look"],
+        "visual_tags": ["gray", "marble veining", "polished", "stone look"]
+      }
+    },
+    {
+      "manufacturer": "Daltile",
+      "name": "Perpetuo - Bridal",
+      "material_family": "tile",
+      "image_object_key": "catalog/daltile/perpetuo-bridal.jpg",
+      "image_url": "https://s7d9.scene7.com/is/image/daltile/DAL_PT25_8_Hex_Bridal_Silo_01_web:Swatch",
+      "metadata": {
+        "source_platform": "manufacturer",
+        "source_url": "https://www.daltile.com/products/marble-look/perpetuo",
+        "colorway": "Bridal",
+        "collection": "Perpetuo",
+        "image_kind": "square_material_swatch",
+        "materials": ["tile", "porcelain", "marble look"],
+        "visual_tags": ["white", "hex", "decorative tile", "marble look"]
+      }
+    },
+    {
+      "manufacturer": "Daltile",
+      "name": "Perpetuo - Tuxedo",
+      "material_family": "tile",
+      "image_object_key": "catalog/daltile/perpetuo-tuxedo.jpg",
+      "image_url": "https://s7d9.scene7.com/is/image/daltile/DAL_PT26_8_Hex_Tuxedo_Silo_01:Swatch",
+      "metadata": {
+        "source_platform": "manufacturer",
+        "source_url": "https://www.daltile.com/products/marble-look/perpetuo",
+        "colorway": "Tuxedo",
+        "collection": "Perpetuo",
+        "image_kind": "square_material_swatch",
+        "materials": ["tile", "porcelain", "marble look"],
+        "visual_tags": ["black and white", "hex", "decorative tile", "contrast"]
+      }
+    },
+    {
+      "manufacturer": "Daltile",
+      "name": "Perpetuo - Brilliant White",
+      "material_family": "tile",
+      "image_object_key": "catalog/daltile/perpetuo-brilliant-white.jpg",
+      "image_url": "https://digitalassets.daltile.com/content/dam/Daltile/DAL_images/perpetuo/web/DAL_PT21_24x24_BrilliantWhite_POL_Silo_01_v2_web.jpg/jcr:content/renditions/cuswatch.jpeg",
+      "metadata": {
+        "source_platform": "manufacturer",
+        "source_url": "https://www.daltile.com/products/marble-look/perpetuo",
+        "colorway": "Brilliant White",
+        "collection": "Perpetuo",
+        "image_kind": "square_material_swatch",
+        "materials": ["tile", "porcelain", "marble look"],
+        "visual_tags": ["white", "subtle veining", "polished", "stone look"]
+      }
+    },
+    {
+      "manufacturer": "Wilsonart",
+      "name": "Sap Walnut - 8221-38",
+      "material_family": "laminate",
+      "image_object_key": "catalog/wilsonart/sap-walnut-8221-38.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/100/fi_100395963.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/wilsonart-sap-walnut-1228678",
+        "colorway": "8221-38",
+        "collection": "HPL",
+        "image_kind": "square_material_swatch",
+        "materials": ["laminate", "high pressure laminate", "woodgrain"],
+        "visual_tags": ["walnut", "light brown", "woodgrain", "linear"]
+      }
+    },
+    {
+      "manufacturer": "Wilsonart",
+      "name": "Continental Walnut - Brown",
+      "material_family": "laminate",
+      "image_object_key": "catalog/wilsonart/continental-walnut-brown.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10001/100550668.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/wilsonart-continental-walnut-1553581",
+        "colorway": "Brown",
+        "collection": "HPL Commercial Designs Collection",
+        "image_kind": "square_material_swatch",
+        "materials": ["laminate", "high pressure laminate", "woodgrain"],
+        "visual_tags": ["walnut", "rich brown", "woodgrain", "plain sawn"]
+      }
+    },
+    {
+      "manufacturer": "Wilsonart",
+      "name": "Colombian Walnut - 7943-07",
+      "material_family": "laminate",
+      "image_object_key": "catalog/wilsonart/colombian-walnut-7943-07.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10000/100395605.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/wilsonart-colombian-walnut-1229045",
+        "colorway": "7943-07",
+        "collection": "HPL",
+        "image_kind": "square_material_swatch",
+        "materials": ["laminate", "high pressure laminate", "woodgrain"],
+        "visual_tags": ["walnut", "dark brown", "woodgrain", "cathedral"]
+      }
+    },
+    {
+      "manufacturer": "Wilsonart",
+      "name": "Hampton Walnut - 7959-78",
+      "material_family": "laminate",
+      "image_object_key": "catalog/wilsonart/hampton-walnut-7959-78.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10000/100395717.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/wilsonart-hampton-walnut-1228193",
+        "colorway": "7959-78",
+        "collection": "HPL",
+        "image_kind": "square_material_swatch",
+        "materials": ["laminate", "high pressure laminate", "woodgrain"],
+        "visual_tags": ["walnut", "planked", "woodgrain", "warm brown"]
+      }
+    },
+    {
+      "manufacturer": "Wilsonart",
+      "name": "Brushed Walnut - Y0643-12F",
+      "material_family": "laminate",
+      "image_object_key": "catalog/wilsonart/brushed-walnut-y0643-12f.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/99/fi_100396373.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/wilsonart-brushed-walnut-1228833",
+        "colorway": "Y0643-12F",
+        "collection": "HPL",
+        "image_kind": "square_material_swatch",
+        "materials": ["laminate", "high pressure laminate", "woodgrain"],
+        "visual_tags": ["walnut", "brushed", "medium brown", "large scale"]
+      }
+    },
+    {
+      "manufacturer": "Wilsonart",
+      "name": "Solano Walnut - Brown",
+      "material_family": "laminate",
+      "image_object_key": "catalog/wilsonart/solano-walnut-brown.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10001/100550696.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/wilsonart-solano-walnut-1553681",
+        "colorway": "Brown",
+        "collection": "HPL Commercial Designs Collection",
+        "image_kind": "square_material_swatch",
+        "materials": ["laminate", "high pressure laminate", "woodgrain"],
+        "visual_tags": ["walnut", "brown", "woodgrain", "commercial laminate"]
+      }
+    },
+    {
+      "manufacturer": "Wilsonart",
+      "name": "Landmark Wood - 7981-12",
+      "material_family": "laminate",
+      "image_object_key": "catalog/wilsonart/landmark-wood-7981-12.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/10000/100395753.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/wilsonart-landmark-wood-1228541",
+        "colorway": "7981-12",
+        "collection": "HPL",
+        "image_kind": "square_material_swatch",
+        "materials": ["laminate", "high pressure laminate", "woodgrain"],
+        "visual_tags": ["teak", "woodgrain", "linear", "warm brown"]
+      }
+    },
+    {
+      "manufacturer": "Wilsonart",
+      "name": "Kingswood Walnut - 8218-38",
+      "material_family": "laminate",
+      "image_object_key": "catalog/wilsonart/kingswood-walnut-8218-38.jpg",
+      "image_url": "https://materialbank-cdn.freetls.fastly.net/media/catalog/product/base_image/100/fi_100395751.jpg",
+      "metadata": {
+        "source_platform": "material_bank",
+        "source_url": "https://www.materialbank.com/wilsonart-kingswood-walnut-1228520",
+        "colorway": "8218-38",
+        "collection": "HPL",
+        "image_kind": "square_material_swatch",
+        "materials": ["laminate", "high pressure laminate", "woodgrain"],
+        "visual_tags": ["walnut", "woodgrain", "brown", "fine velvet"]
+      }
+    }
+  ]
+}

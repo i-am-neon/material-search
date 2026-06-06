@@ -114,3 +114,31 @@ dramatiq app.workers.catalog_indexing
 3. The `catalog-indexing` Dramatiq actor calls the embedding service and upserts a
    `{ catalog_item_id, model_id, dimensions, embedding }` row.
 4. `POST /catalog/vector-search` runs nearest-neighbor search through pgvector.
+
+## One-time starter catalog load
+
+The starter catalog lives at `../data/catalog/material-bank-style-seed.json`.
+It uses flat, square material swatch images only: no room scenes, installed
+application shots, product packaging, or hero images.
+
+Validate the manifest:
+
+```bash
+cd backend
+catalog-load-seed --dry-run
+```
+
+Insert the catalog rows once:
+
+```bash
+cd backend
+set -a && source .env && set +a
+catalog-load-seed
+```
+
+Then smoke-test and drain missing embeddings:
+
+```bash
+catalog-index-missing --batch-size 25 --max-items 1
+catalog-index-missing --batch-size 25 --max-items 0
+```

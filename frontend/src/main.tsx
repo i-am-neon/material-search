@@ -1,10 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import {
+  ArrowLeft,
   CheckCircle2,
   ChevronDown,
   Clock3,
   Download,
+  Grid2X2,
   ImagePlus,
   Layers3,
   Play,
@@ -12,6 +14,8 @@ import {
   SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
+import { HashRouter, Link, NavLink, Route, Routes } from "react-router-dom";
+import catalogSeed from "../../data/catalog/material-bank-style-seed.json";
 import demoRoom from "./assets/demo-room.png";
 import "./styles.css";
 
@@ -44,6 +48,35 @@ type Match = {
   finish: string;
   swatch: string;
 };
+
+type CatalogMetadata = {
+  colorway?: string;
+  collection?: string;
+  image_kind?: string;
+  materials?: string[];
+  source_platform?: string;
+  source_url?: string;
+  visual_tags?: string[];
+};
+
+type CatalogSeedItem = {
+  manufacturer: string;
+  name: string;
+  material_family: string | null;
+  image_object_key: string;
+  image_url: string | null;
+  metadata: CatalogMetadata;
+};
+
+const catalogItems = catalogSeed.items as CatalogSeedItem[];
+
+const materialFamilies = Array.from(
+  new Set(catalogItems.map((item) => item.material_family ?? "uncategorized")),
+).sort();
+
+function formatFamily(family: string) {
+  return family.replace(/_/g, " ");
+}
 
 const runStages: RunStage[] = [
   { label: "Plan concepts", status: "complete" },
@@ -230,7 +263,7 @@ const matches: Record<string, Match[]> = {
   ],
 };
 
-function App() {
+function SearchWorkbench() {
   const [selectedRegionId, setSelectedRegionId] = React.useState(regions[0].id);
   const selectedRegion = regions.find((region) => region.id === selectedRegionId) ?? regions[0];
   const selectedMatches = matches[selectedRegion.id];
@@ -246,6 +279,10 @@ function App() {
           <h1>Visual catalog matching workbench</h1>
         </div>
         <div className="topbar-actions">
+          <Link className="nav-action" to="/catalog">
+            <Grid2X2 size={18} />
+            <span>Catalog</span>
+          </Link>
           <button className="icon-button" aria-label="Search history">
             <Clock3 size={18} />
           </button>
@@ -411,6 +448,107 @@ function App() {
         </aside>
       </section>
     </main>
+  );
+}
+
+function CatalogPage() {
+  const [activeFamily, setActiveFamily] = React.useState("all");
+  const visibleItems =
+    activeFamily === "all"
+      ? catalogItems
+      : catalogItems.filter((item) => (item.material_family ?? "uncategorized") === activeFamily);
+
+  return (
+    <main className="app-shell catalog-shell">
+      <header className="topbar catalog-topbar">
+        <Link className="brand-mark" to="/" aria-label="Back to workbench">
+          <ArrowLeft size={22} />
+        </Link>
+        <div>
+          <p className="eyebrow">Demo Catalog</p>
+          <h1>Material swatch catalog</h1>
+        </div>
+        <div className="topbar-actions">
+          <NavLink className="nav-action" to="/">
+            <Layers3 size={18} />
+            <span>Workbench</span>
+          </NavLink>
+        </div>
+      </header>
+
+      <section className="catalog-summary">
+        <div>
+          <p className="eyebrow">Seeded Records</p>
+          <strong>{catalogItems.length}</strong>
+        </div>
+        <div>
+          <p className="eyebrow">Image Rule</p>
+          <strong>square swatches only</strong>
+        </div>
+        <div>
+          <p className="eyebrow">Visible</p>
+          <strong>{visibleItems.length}</strong>
+        </div>
+      </section>
+
+      <nav className="catalog-filters" aria-label="Catalog material families">
+        <button className={activeFamily === "all" ? "active" : ""} onClick={() => setActiveFamily("all")}>
+          All
+        </button>
+        {materialFamilies.map((family) => (
+          <button
+            className={activeFamily === family ? "active" : ""}
+            key={family}
+            onClick={() => setActiveFamily(family)}
+          >
+            {formatFamily(family)}
+          </button>
+        ))}
+      </nav>
+
+      <section className="catalog-grid" aria-label="Catalog swatches">
+        {visibleItems.map((item) => (
+          <article className="catalog-card" key={item.image_object_key}>
+            <a
+              className="catalog-swatch"
+              href={item.metadata.source_url}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {item.image_url ? <img src={item.image_url} alt={`${item.manufacturer} ${item.name}`} /> : null}
+            </a>
+            <div className="catalog-card-body">
+              <div>
+                <p>{item.manufacturer}</p>
+                <h2>{item.name}</h2>
+              </div>
+              <div className="catalog-card-meta">
+                <span>{formatFamily(item.material_family ?? "uncategorized")}</span>
+                {item.metadata.colorway ? <span>{item.metadata.colorway}</span> : null}
+              </div>
+              {item.metadata.visual_tags?.length ? (
+                <div className="catalog-tags">
+                  {item.metadata.visual_tags.slice(0, 4).map((tag) => (
+                    <span key={tag}>{tag}</span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </article>
+        ))}
+      </section>
+    </main>
+  );
+}
+
+function App() {
+  return (
+    <HashRouter>
+      <Routes>
+        <Route path="/" element={<SearchWorkbench />} />
+        <Route path="/catalog" element={<CatalogPage />} />
+      </Routes>
+    </HashRouter>
   );
 }
 
