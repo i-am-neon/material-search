@@ -120,7 +120,7 @@ flyctl deploy
 
 ```bash
 uvicorn app.main:app --reload
-dramatiq app.workers.catalog_indexing
+dramatiq app.workers.catalog_indexing app.workers.search_runs
 ```
 
 ## Test
@@ -184,11 +184,18 @@ repository secret.
 PNG, or WebP, and stores it in the `uploaded-images` bucket. The response
 contains the `image_object_key` to pass into `POST /search/segment-matches`.
 
-`POST /search/segment-matches` takes an uploaded image object key or direct
-image URL plus a material prompt. The API asks SAM3 for regions, crops each
-returned region, uploads the crop to the generated-artifacts bucket, signs the
-crop URL, embeds that crop with SigLIP, stores run/region/match rows in
-Postgres, and returns ranked catalog matches from pgvector.
+`POST /search/runs` takes an uploaded image object key or direct image URL plus a
+material prompt. The API creates a queued run row, enqueues a `search-runs`
+Dramatiq job, and returns a `run_id` immediately. The client polls
+`GET /search/runs/{run_id}` until the worker marks the run completed or failed.
+
+The worker runs the LangGraph material-search graph: it asks SAM3 for regions,
+crops each returned region, uploads the crop to the generated-artifacts bucket,
+signs the crop URL, embeds that crop with SigLIP, stores run/region/match rows in
+Postgres, and persists ranked catalog matches from pgvector.
+
+`POST /search/segment-matches` remains available as a synchronous compatibility
+endpoint, but new UI flows should use the durable run API.
 
 ## One-time starter catalog load
 

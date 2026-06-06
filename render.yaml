@@ -11,6 +11,8 @@ services:
     envVars:
       - key: DATABASE_URL
         sync: false
+      - key: REDIS_URL
+        sync: false
       - key: EMBEDDING_SERVICE_URL
         sync: false
       - key: SAM3_SERVICE_URL

@@ -5,20 +5,38 @@ from uuid import UUID
 from psycopg import Connection
 from psycopg.types.json import Jsonb
 
-from app.model_services.segmentation import SegmentationRegion
+from app.catalog.schemas import CatalogItem, CatalogMatch
+from app.model_services.segmentation import SegmentationMask, SegmentationRegion
 from app.search.artifacts import RegionArtifact
 from app.search.schemas import (
     MaterialSearchMatchRecord,
     MaterialSearchRegionRecord,
     MaterialSearchRun,
     RankedRegionMatch,
+    SearchRunStatus,
     SegmentMatchRequest,
+    SegmentMatchResponse,
+    SegmentRegionMatchSet,
 )
 
 
 class SearchRunRepository(ABC):
     @abstractmethod
-    def create_run(self, request: SegmentMatchRequest) -> MaterialSearchRun:
+    def create_run(
+        self, request: SegmentMatchRequest, *, status: SearchRunStatus = "running"
+    ) -> MaterialSearchRun:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_run(self, run_id: UUID) -> MaterialSearchRun | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def mark_run_running(self, run_id: UUID) -> MaterialSearchRun:
+        raise NotImplementedError
+
+    @abstractmethod
+    def clear_run_outputs(self, run_id: UUID) -> None:
         raise NotImplementedError
 
     @abstractmethod
@@ -53,12 +71,18 @@ class SearchRunRepository(ABC):
     ) -> list[MaterialSearchMatchRecord]:
         raise NotImplementedError
 
+    @abstractmethod
+    def get_run_result(self, run_id: UUID) -> SegmentMatchResponse | None:
+        raise NotImplementedError
+
 
 class PostgresSearchRunRepository(SearchRunRepository):
     def __init__(self, conn: Connection):
         self.conn = conn
 
-    def create_run(self, request: SegmentMatchRequest) -> MaterialSearchRun:
+    def create_run(
+        self, request: SegmentMatchRequest, *, status: SearchRunStatus = "running"
+    ) -> MaterialSearchRun:
         row = self.conn.execute(
             """
             insert into material_search_runs (
@@ -68,7 +92,7 @@ class PostgresSearchRunRepository(SearchRunRepository):
               source_image_url,
               status
             )
-            values (coalesce(%s::uuid, uuid_generate_v4()), %s, %s, %s, 'running')
+            values (coalesce(%s::uuid, uuid_generate_v4()), %s, %s, %s, %s)
             returning *
             """,
             (
@@ -76,10 +100,39 @@ class PostgresSearchRunRepository(SearchRunRepository):
                 request.prompt,
                 request.image_object_key,
                 str(request.image_url) if request.image_url else None,
+                status,
             ),
         ).fetchone()
         self.conn.commit()
         return MaterialSearchRun.model_validate(row)
+
+    def get_run(self, run_id: UUID) -> MaterialSearchRun | None:
+        row = self.conn.execute(
+            "select * from material_search_runs where id = %s",
+            (run_id,),
+        ).fetchone()
+        return MaterialSearchRun.model_validate(row) if row else None
+
+    def mark_run_running(self, run_id: UUID) -> MaterialSearchRun:
+        row = self.conn.execute(
+            """
+            update material_search_runs
+            set status = 'running',
+                error = null
+            where id = %s
+            returning *
+            """,
+            (run_id,),
+        ).fetchone()
+        self.conn.commit()
+        return _require_row(row, f"Material search run {run_id} does not exist")
+
+    def clear_run_outputs(self, run_id: UUID) -> None:
+        self.conn.execute(
+            "delete from material_search_regions where run_id = %s",
+            (run_id,),
+        )
+        self.conn.commit()
 
     def complete_run(
         self, *, run_id: UUID, image_width: int, image_height: int
@@ -197,6 +250,94 @@ class PostgresSearchRunRepository(SearchRunRepository):
                 rows.append(row)
         self.conn.commit()
         return [MaterialSearchMatchRecord.model_validate(row) for row in rows]
+
+    def get_run_result(self, run_id: UUID) -> SegmentMatchResponse | None:
+        run = self.get_run(run_id)
+        if run is None or run.image_width is None or run.image_height is None:
+            return None
+
+        region_rows = self.conn.execute(
+            """
+            select *
+            from material_search_regions
+            where run_id = %s
+            order by created_at asc
+            """,
+            (run_id,),
+        ).fetchall()
+
+        regions = [self._region_match_set(row) for row in region_rows]
+        return SegmentMatchResponse(
+            run_id=run.id,
+            prompt=run.prompt,
+            image_width=run.image_width,
+            image_height=run.image_height,
+            regions=regions,
+        )
+
+    def _region_match_set(self, row: dict[str, Any]) -> SegmentRegionMatchSet:
+        match_rows = self.conn.execute(
+            """
+            select
+              msm.rank,
+              msm.similarity,
+              msm.embedding_model_id as match_model_id,
+              ci.id as catalog_item_id,
+              ci.manufacturer,
+              ci.name,
+              ci.material_family,
+              ci.image_object_key,
+              ci.image_url,
+              ci.metadata,
+              ci.created_at,
+              ci.updated_at
+            from material_search_matches msm
+            join catalog_items ci on ci.id = msm.catalog_item_id
+            where msm.region_id = %s
+            order by msm.rank asc
+            """,
+            (row["id"],),
+        ).fetchall()
+        source_region_id = row["source_region_id"]
+        return SegmentRegionMatchSet(
+            region=SegmentationRegion(
+                id=source_region_id,
+                prompt=row["prompt"],
+                score=row["score"],
+                box_xyxy=row["box_xyxy"],
+                mask=SegmentationMask.model_validate(row["mask"]) if row["mask"] else None,
+            ),
+            crop_object_key=row["crop_object_key"],
+            crop_url=None,
+            crop_width=row["crop_width"],
+            crop_height=row["crop_height"],
+            model_id=row["embedding_model_id"],
+            dimensions=row["embedding_dimensions"],
+            matches=[
+                RankedRegionMatch(
+                    region_id=source_region_id,
+                    rank=match_row["rank"],
+                    match=CatalogMatch(
+                        item=CatalogItem.model_validate(
+                            {
+                                "id": match_row["catalog_item_id"],
+                                "manufacturer": match_row["manufacturer"],
+                                "name": match_row["name"],
+                                "material_family": match_row["material_family"],
+                                "image_object_key": match_row["image_object_key"],
+                                "image_url": match_row["image_url"],
+                                "metadata": match_row["metadata"],
+                                "created_at": match_row["created_at"],
+                                "updated_at": match_row["updated_at"],
+                            }
+                        ),
+                        model_id=match_row["match_model_id"],
+                        similarity=match_row["similarity"],
+                    ),
+                )
+                for match_row in match_rows
+            ],
+        )
 
 
 def _require_row(row: dict[str, Any] | None, message: str) -> MaterialSearchRun:

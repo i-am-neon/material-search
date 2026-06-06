@@ -166,7 +166,9 @@ class FakeSearchRunRepository:
         self.fail_run_calls: list[dict] = []
         self.region_id = uuid4()
 
-    def create_run(self, request: SegmentMatchRequest) -> MaterialSearchRun:
+    def create_run(
+        self, request: SegmentMatchRequest, *, status: str = "running"
+    ) -> MaterialSearchRun:
         self.create_run_calls.append(request)
         now = datetime.now(UTC)
         return MaterialSearchRun(
@@ -174,6 +176,24 @@ class FakeSearchRunRepository:
             prompt=request.prompt,
             source_image_object_key=request.image_object_key,
             source_image_url=request.image_url,
+            status=status,
+            error=None,
+            image_width=None,
+            image_height=None,
+            created_at=now,
+            updated_at=now,
+        )
+
+    def get_run(self, run_id: UUID) -> MaterialSearchRun | None:
+        raise NotImplementedError
+
+    def mark_run_running(self, run_id: UUID) -> MaterialSearchRun:
+        now = datetime.now(UTC)
+        return MaterialSearchRun(
+            id=run_id,
+            prompt="upholstery",
+            source_image_object_key="uploads/room.jpg",
+            source_image_url=None,
             status="running",
             error=None,
             image_width=None,
@@ -181,6 +201,9 @@ class FakeSearchRunRepository:
             created_at=now,
             updated_at=now,
         )
+
+    def clear_run_outputs(self, run_id: UUID) -> None:
+        return None
 
     def complete_run(
         self, *, run_id: UUID, image_width: int, image_height: int
@@ -284,6 +307,9 @@ class FakeSearchRunRepository:
             )
             for match in matches
         ]
+
+    def get_run_result(self, run_id: UUID):
+        raise NotImplementedError
 
 
 def test_segment_catalog_match_service_crops_embeds_and_matches_regions():

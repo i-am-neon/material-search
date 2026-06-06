@@ -1,4 +1,5 @@
-from typing import Annotated
+from typing import Annotated, Protocol
+from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -11,13 +12,34 @@ from app.model_services.segmentation import Sam3Client
 from app.search.artifacts import RegionArtifactStore, get_region_artifact_store
 from app.search.dependencies import get_search_run_repository
 from app.search.repository import SearchRunRepository
-from app.search.schemas import SegmentMatchRequest, SegmentMatchResponse, UploadImageResponse
+from app.search.schemas import (
+    SearchRunAccepted,
+    SearchRunStatusResponse,
+    SegmentMatchRequest,
+    SegmentMatchResponse,
+    UploadImageResponse,
+)
 from app.search.service import SegmentCatalogMatchService
 from app.search.uploads import UploadedImageStore, get_uploaded_image_store
+from app.workers.search_runs import process_search_run
 
 router = APIRouter(prefix="/search", tags=["search"])
 
 MAX_UPLOAD_BYTES = 12 * 1024 * 1024
+
+
+class SearchRunDispatcher(Protocol):
+    def enqueue(self, request: SegmentMatchRequest) -> None:
+        raise NotImplementedError
+
+
+class DramatiqSearchRunDispatcher:
+    def enqueue(self, request: SegmentMatchRequest) -> None:
+        process_search_run.send(request.model_dump(mode="json"))
+
+
+def get_search_run_dispatcher() -> SearchRunDispatcher:
+    return DramatiqSearchRunDispatcher()
 
 
 @router.post(
@@ -51,6 +73,38 @@ async def upload_search_image(
         content_type=uploaded.content_type,
         size_bytes=uploaded.size_bytes,
     )
+
+
+@router.post(
+    "/runs",
+    response_model=SearchRunAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def create_search_run(
+    request: SegmentMatchRequest,
+    search_run_repository: Annotated[SearchRunRepository, Depends(get_search_run_repository)],
+    dispatcher: Annotated[SearchRunDispatcher, Depends(get_search_run_dispatcher)],
+) -> SearchRunAccepted:
+    run = search_run_repository.create_run(request, status="queued")
+    queued_request = request.model_copy(update={"run_id": run.id})
+    try:
+        dispatcher.enqueue(queued_request)
+    except Exception as exc:
+        search_run_repository.fail_run(run_id=run.id, error=f"Search enqueue failed: {exc}")
+        raise HTTPException(status_code=503, detail="Search queue is unavailable") from exc
+    return SearchRunAccepted(run_id=run.id, status=run.status)
+
+
+@router.get("/runs/{run_id}", response_model=SearchRunStatusResponse)
+def get_search_run_status(
+    run_id: UUID,
+    search_run_repository: Annotated[SearchRunRepository, Depends(get_search_run_repository)],
+) -> SearchRunStatusResponse:
+    run = search_run_repository.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Search run {run_id} was not found")
+    result = search_run_repository.get_run_result(run_id) if run.status == "completed" else None
+    return SearchRunStatusResponse(run=run, result=result)
 
 
 @router.post("/segment-matches", response_model=SegmentMatchResponse)

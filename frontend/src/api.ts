@@ -50,7 +50,7 @@ export type SegmentationRegionResponse = {
 export type SegmentRegionMatchSetResponse = {
   region: SegmentationRegionResponse;
   crop_object_key: string;
-  crop_url: string;
+  crop_url: string | null;
   crop_width: number;
   crop_height: number;
   model_id: string;
@@ -64,6 +64,31 @@ export type SegmentMatchResponse = {
   image_width: number;
   image_height: number;
   regions: SegmentRegionMatchSetResponse[];
+};
+
+export type SearchRunStatus = "queued" | "running" | "completed" | "failed";
+
+export type MaterialSearchRunResponse = {
+  id: string;
+  prompt: string;
+  source_image_object_key: string | null;
+  source_image_url: string | null;
+  status: SearchRunStatus;
+  error: string | null;
+  image_width: number | null;
+  image_height: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SearchRunAcceptedResponse = {
+  run_id: string;
+  status: SearchRunStatus;
+};
+
+export type SearchRunStatusResponse = {
+  run: MaterialSearchRunResponse;
+  result: SegmentMatchResponse | null;
 };
 
 export async function uploadSearchImage(file: File): Promise<UploadedImageResponse> {
@@ -86,6 +111,22 @@ export async function segmentMatches(
     body: JSON.stringify(request),
   });
   return parseJsonResponse<SegmentMatchResponse>(response);
+}
+
+export async function createSearchRun(
+  request: SegmentMatchRequest,
+): Promise<SearchRunAcceptedResponse> {
+  const response = await fetch(apiUrl("/search/runs"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  return parseJsonResponse<SearchRunAcceptedResponse>(response);
+}
+
+export async function getSearchRunStatus(runId: string): Promise<SearchRunStatusResponse> {
+  const response = await fetch(apiUrl(`/search/runs/${runId}`));
+  return parseJsonResponse<SearchRunStatusResponse>(response);
 }
 
 async function parseJsonResponse<T>(response: Response): Promise<T> {

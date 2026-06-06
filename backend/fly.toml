@@ -13,7 +13,7 @@ primary_region = "sjc"
 
 [processes]
   api = "uvicorn app.main:app --host 0.0.0.0 --port 8080"
-  worker = "dramatiq app.workers.catalog_indexing"
+  worker = "dramatiq app.workers.catalog_indexing app.workers.search_runs"
 
 [http_service]
   internal_port = 8080
@@ -34,4 +34,3 @@ primary_region = "sjc"
   cpu_kind = "shared"
   cpus = 1
   processes = ["worker"]
-

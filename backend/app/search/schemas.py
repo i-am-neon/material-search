@@ -59,7 +59,7 @@ class SegmentMatchRequest(BaseModel):
 class SegmentRegionMatchSet(BaseModel):
     region: SegmentationRegion
     crop_object_key: str
-    crop_url: HttpUrl
+    crop_url: HttpUrl | None = None
     crop_width: int = Field(gt=0)
     crop_height: int = Field(gt=0)
     model_id: str
@@ -81,7 +81,7 @@ class UploadImageResponse(BaseModel):
     size_bytes: int
 
 
-SearchRunStatus = Literal["running", "completed", "failed"]
+SearchRunStatus = Literal["queued", "running", "completed", "failed"]
 SearchRegionStatus = Literal["matched", "failed"]
 
 
@@ -125,3 +125,13 @@ class MaterialSearchMatchRecord(BaseModel):
     similarity: float
     rank: int
     created_at: datetime
+
+
+class SearchRunAccepted(BaseModel):
+    run_id: UUID
+    status: SearchRunStatus
+
+
+class SearchRunStatusResponse(BaseModel):
+    run: MaterialSearchRun
+    result: SegmentMatchResponse | None = None

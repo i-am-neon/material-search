@@ -11,11 +11,14 @@ from app.model_services.factory import get_embedding_client, get_sam3_client
 from app.model_services.segmentation import SegmentationRegion, SegmentationResult
 from app.search.artifacts import RegionArtifact, get_region_artifact_store
 from app.search.dependencies import get_search_run_repository
+from app.search.router import get_search_run_dispatcher
 from app.search.schemas import (
     MaterialSearchMatchRecord,
     MaterialSearchRegionRecord,
     MaterialSearchRun,
     SegmentMatchRequest,
+    SegmentMatchResponse,
+    SegmentRegionMatchSet,
 )
 from app.search.uploads import UploadedImage, get_uploaded_image_store
 
@@ -86,26 +89,47 @@ class FakeCatalogRepository:
 
 
 class FakeSearchRunRepository:
-    def create_run(self, request: SegmentMatchRequest) -> MaterialSearchRun:
+    def __init__(self):
+        self.run: MaterialSearchRun | None = None
+        self.queued_request: SegmentMatchRequest | None = None
+        self.result: SegmentMatchResponse | None = None
+
+    def create_run(
+        self, request: SegmentMatchRequest, *, status: str = "running"
+    ) -> MaterialSearchRun:
         now = datetime.now(UTC)
-        return MaterialSearchRun(
+        self.queued_request = request
+        self.run = MaterialSearchRun(
             id=request.run_id or uuid4(),
             prompt=request.prompt,
             source_image_object_key=request.image_object_key,
             source_image_url=request.image_url,
-            status="running",
+            status=status,
             error=None,
             image_width=None,
             image_height=None,
             created_at=now,
             updated_at=now,
         )
+        return self.run
+
+    def get_run(self, run_id: UUID) -> MaterialSearchRun | None:
+        return self.run if self.run and self.run.id == run_id else None
+
+    def mark_run_running(self, run_id: UUID) -> MaterialSearchRun:
+        if self.run is None:
+            raise ValueError(f"Run {run_id} does not exist")
+        self.run = self.run.model_copy(update={"status": "running", "error": None})
+        return self.run
+
+    def clear_run_outputs(self, run_id: UUID) -> None:
+        return None
 
     def complete_run(
         self, *, run_id: UUID, image_width: int, image_height: int
     ) -> MaterialSearchRun:
         now = datetime.now(UTC)
-        return MaterialSearchRun(
+        self.run = MaterialSearchRun(
             id=run_id,
             prompt="upholstery",
             source_image_object_key=None,
@@ -117,10 +141,11 @@ class FakeSearchRunRepository:
             created_at=now,
             updated_at=now,
         )
+        return self.run
 
     def fail_run(self, *, run_id: UUID, error: str) -> MaterialSearchRun:
         now = datetime.now(UTC)
-        return MaterialSearchRun(
+        self.run = MaterialSearchRun(
             id=run_id,
             prompt="upholstery",
             source_image_object_key=None,
@@ -132,6 +157,7 @@ class FakeSearchRunRepository:
             created_at=now,
             updated_at=now,
         )
+        return self.run
 
     def create_region(
         self,
@@ -182,6 +208,17 @@ class FakeSearchRunRepository:
             )
             for match in matches
         ]
+
+    def get_run_result(self, run_id: UUID) -> SegmentMatchResponse | None:
+        return self.result if self.result and self.result.run_id == run_id else None
+
+
+class FakeSearchRunDispatcher:
+    def __init__(self):
+        self.requests: list[SegmentMatchRequest] = []
+
+    def enqueue(self, request: SegmentMatchRequest) -> None:
+        self.requests.append(request)
 
 
 class FakeUploadedImageStore:
@@ -236,6 +273,80 @@ def test_segment_matches_endpoint_returns_region_catalog_matches():
     )
     assert payload["regions"][0]["matches"][0]["rank"] == 1
     assert payload["regions"][0]["matches"][0]["match"]["item"]["name"] == "Warm Gray Boucle"
+
+
+def test_create_search_run_persists_and_enqueues_run():
+    app = create_app()
+    repository = FakeSearchRunRepository()
+    dispatcher = FakeSearchRunDispatcher()
+    app.dependency_overrides[get_search_run_repository] = lambda: repository
+    app.dependency_overrides[get_search_run_dispatcher] = lambda: dispatcher
+
+    response = TestClient(app).post(
+        "/search/runs",
+        json={
+            "image_url": "https://example.com/room.jpg",
+            "prompt": "upholstery",
+            "model_id": "test-model",
+            "dimensions": 3,
+        },
+    )
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["status"] == "queued"
+    assert repository.run is not None
+    assert payload["run_id"] == str(repository.run.id)
+    assert len(dispatcher.requests) == 1
+    assert dispatcher.requests[0].run_id == repository.run.id
+    assert dispatcher.requests[0].prompt == "upholstery"
+
+
+def test_get_search_run_status_returns_completed_result():
+    app = create_app()
+    repository = FakeSearchRunRepository()
+    run = repository.create_run(
+        SegmentMatchRequest(
+            image_url="https://example.com/room.jpg",
+            prompt="upholstery",
+            model_id="test-model",
+            dimensions=3,
+        ),
+        status="completed",
+    )
+    repository.run = run.model_copy(update={"image_width": 320, "image_height": 240})
+    repository.result = SegmentMatchResponse(
+        run_id=run.id,
+        prompt="upholstery",
+        image_width=320,
+        image_height=240,
+        regions=[
+            SegmentRegionMatchSet(
+                region=SegmentationRegion(
+                    id="sam3_region_0",
+                    prompt="upholstery",
+                    score=0.93,
+                    box_xyxy=[1.0, 2.0, 101.0, 122.0],
+                ),
+                crop_object_key="runs/run/regions/sam3_region_0/crop.jpg",
+                crop_url=None,
+                crop_width=100,
+                crop_height=120,
+                model_id="test-model",
+                dimensions=3,
+                matches=[],
+            )
+        ],
+    )
+    app.dependency_overrides[get_search_run_repository] = lambda: repository
+
+    response = TestClient(app).get(f"/search/runs/{run.id}")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run"]["status"] == "completed"
+    assert payload["result"]["run_id"] == str(run.id)
+    assert payload["result"]["regions"][0]["region"]["id"] == "sam3_region_0"
 
 
 def test_upload_search_image_returns_uploaded_object_key():
