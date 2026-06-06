@@ -1,5 +1,5 @@
 import catalogSeed from "../../data/catalog/material-bank-style-seed.json";
-import type { CatalogSeedItem, MaterialRegion, ProductMatch, RunScenario, RunStage } from "./types";
+import type { CatalogSeedItem, MaterialRegion, ProductMatch } from "./types";
 
 export const catalogItems = catalogSeed.items as CatalogSeedItem[];
 
@@ -154,47 +154,3 @@ export const matchesByRegion: Record<string, ProductMatch[]> = {
 export const defaultPrompt =
   "Find orderable materials that match the floor, walnut paneling, pale counter surface, and sage upholstery. Favor hospitality-grade finishes with quiet texture.";
 
-export function getRunStages(scenario: RunScenario): RunStage[] {
-  if (scenario === "empty") {
-    return [
-      { label: "Upload image", detail: "Choose a reference image", status: "active" },
-      { label: "Find regions", detail: "Waiting for a run", status: "queued" },
-      { label: "Match catalog", detail: "Waiting for regions", status: "queued" },
-      { label: "Review cart", detail: "Add samples when ready", status: "queued" },
-    ];
-  }
-
-  if (scenario === "failed") {
-    return [
-      { label: "Plan concepts", detail: "Request interpreted", status: "complete" },
-      { label: "Segment regions", detail: "Service timed out", status: "failed" },
-      { label: "Match catalog", detail: "Not started", status: "queued" },
-      { label: "Review cart", detail: "Not started", status: "queued" },
-    ];
-  }
-
-  if (scenario === "planning") {
-    return [
-      { label: "Plan concepts", detail: "Reading image and request", status: "active" },
-      { label: "Segment regions", detail: "Queued", status: "queued" },
-      { label: "Match catalog", detail: "Queued", status: "queued" },
-      { label: "Review cart", detail: "Waiting for matches", status: "queued" },
-    ];
-  }
-
-  if (scenario === "matching") {
-    return [
-      { label: "Plan concepts", detail: "4 material targets selected", status: "complete" },
-      { label: "Segment regions", detail: "4 usable regions found", status: "complete" },
-      { label: "Match catalog", detail: "Retrieving orderable materials", status: "active" },
-      { label: "Review cart", detail: "Waiting for matches", status: "queued" },
-    ];
-  }
-
-  return [
-    { label: "Plan concepts", detail: "4 material targets selected", status: "complete" },
-    { label: "Segment regions", detail: "4 usable regions found", status: "complete" },
-    { label: "Match catalog", detail: "Product options ready", status: "complete" },
-    { label: "Review cart", detail: "Add samples to cart", status: "active" },
-  ];
-}

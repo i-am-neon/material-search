@@ -1,13 +1,5 @@
 export type RunScenario = "empty" | "planning" | "matching" | "complete" | "failed";
 
-export type RunStageStatus = "complete" | "active" | "queued" | "failed";
-
-export type RunStage = {
-  label: string;
-  detail: string;
-  status: RunStageStatus;
-};
-
 export type RegionBox = {
   left: number;
   top: number;
@@ -54,4 +46,5 @@ export type ProductMatch = {
   fit: MatchFit;
   item: CatalogSeedItem;
   reasons: string[];
+  similarity?: number; // 0..1 visual similarity when produced by a real run
 };
