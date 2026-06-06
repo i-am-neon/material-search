@@ -1,0 +1,54 @@
+name: Index Catalog
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: Items to enrich per batch
+        default: "25"
+        required: true
+      max_items:
+        description: Maximum items to enrich, 0 means no cap
+        default: "0"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: catalog-indexing
+  cancel-in-progress: false
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      EMBEDDING_SERVICE_URL: ${{ secrets.EMBEDDING_SERVICE_URL }}
+      EMBEDDING_MODEL_ID: google/siglip2-so400m-patch14-384
+      EMBEDDING_DIMENSIONS: "1152"
+      CATALOG_IMAGE_BUCKET: catalog-images
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install backend
+        run: pip install .
+
+      - name: Index missing catalog embeddings
+        run: >
+          catalog-index-missing
+          --batch-size "${{ inputs.batch_size }}"
+          --max-items "${{ inputs.max_items }}"
+

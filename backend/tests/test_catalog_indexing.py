@@ -28,6 +28,9 @@ class FakeRepository:
     def list_items_missing_embedding(self, *, model_id: str, dimensions: int, limit: int = 500):
         return list(self.items.values())[:limit]
 
+    def count_items_missing_embedding(self, *, model_id: str, dimensions: int):
+        return len(self.items)
+
     def upsert_embedding(self, **kwargs):
         self.upserts.append(kwargs)
 

@@ -30,8 +30,6 @@ Production infrastructure currently uses:
 
 - Supabase project: `material-search-prod`
 - Supabase ref: `heskjwbphpvbtdnfxcgu`
-- Fly app: `material-search-api`
-- Fly region: `sjc`
 
 The Supabase migration has been applied in prod, and these private storage
 buckets exist:
@@ -40,20 +38,44 @@ buckets exist:
 - `uploaded-images`
 - `generated-artifacts`
 
-The Fly app uses one image with two process groups:
+For the free-tier path, deploy the frontend through GitHub Pages and deploy the
+API only if it needs to be publicly reachable. The repo includes a root
+`render.yaml` blueprint for a Render Free web service. Set the same
+`DATABASE_URL` and `EMBEDDING_SERVICE_URL` values from `backend/.env` in Render.
 
-- `api`: `uvicorn app.main:app --host 0.0.0.0 --port 8080`
-- `worker`: `dramatiq app.workers.catalog_indexing`
+Catalog vector enrichment does not require a long-lived
+queue worker. Run it as a one-off command locally or through the manual
+`Index Catalog` GitHub Action:
 
-Before running catalog indexing in prod, set:
+```bash
+cd backend
+set -a && source .env && set +a
+catalog-index-missing --batch-size 25 --max-items 0
+```
 
-- `REDIS_URL`: required by Dramatiq. Fly-managed Redis was blocked until billing
-  is added to the Fly organization.
-- `EMBEDDING_SERVICE_URL`: required by the catalog worker to create SigLIP 2
-  vectors.
+Use `--max-items 1` for a production smoke test before draining the catalog.
 
-After both values exist, update `backend/.env`, set Fly secrets from it, deploy,
-and queue indexing:
+The GitHub Action needs these repository secrets:
+
+- `DATABASE_URL`
+- `EMBEDDING_SERVICE_URL`
+
+`REDIS_URL` is optional for this path. Use direct Upstash Free Redis only if the
+API needs to enqueue async jobs. Upstash Free currently gives enough room for
+small hobby usage, but catalog indexing should still prefer the one-off command
+so queue polling does not burn through free command quota.
+
+The previous Fly app shell still exists:
+
+- Fly app: `material-search-api`
+- Fly region: `sjc`
+
+It can run the API and worker process groups later, but Fly-managed Redis was
+blocked until billing is added to the Fly organization. For free-tier production,
+prefer GitHub Pages for the UI and a free web service only if the API needs to be
+publicly reachable.
+
+If deploying the API to Fly later, set secrets from `backend/.env`:
 
 ```bash
 cd backend

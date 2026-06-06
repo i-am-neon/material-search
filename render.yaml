@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: material-search-api
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: pip install .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: EMBEDDING_SERVICE_URL
+        sync: false
+      - key: EMBEDDING_MODEL_ID
+        value: google/siglip2-so400m-patch14-384
+      - key: EMBEDDING_DIMENSIONS
+        value: "1152"
+      - key: CATALOG_IMAGE_BUCKET
+        value: catalog-images
+

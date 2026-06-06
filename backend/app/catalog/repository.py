@@ -28,6 +28,10 @@ class CatalogRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def count_items_missing_embedding(self, *, model_id: str, dimensions: int) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
     def upsert_embedding(
         self, *, catalog_item_id: UUID, model_id: str, dimensions: int, embedding: list[float]
     ) -> None:
@@ -107,6 +111,21 @@ class PostgresCatalogRepository(CatalogRepository):
             (model_id, dimensions, limit),
         ).fetchall()
         return [CatalogItem.model_validate(row) for row in rows]
+
+    def count_items_missing_embedding(self, *, model_id: str, dimensions: int) -> int:
+        row = self.conn.execute(
+            """
+            select count(*) as count
+            from catalog_items ci
+            left join catalog_item_embeddings cie
+              on cie.catalog_item_id = ci.id
+             and cie.model_id = %s
+             and cie.dimensions = %s
+            where cie.catalog_item_id is null
+            """,
+            (model_id, dimensions),
+        ).fetchone()
+        return int(row["count"])
 
     def upsert_embedding(
         self, *, catalog_item_id: UUID, model_id: str, dimensions: int, embedding: list[float]
