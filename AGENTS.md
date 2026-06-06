@@ -28,6 +28,7 @@ Build incrementally from the target architecture, starting with project scaffold
 - Use durable search runs: the API creates a `run_id`, enqueues work, and clients fetch status/results.
 - Keep model trust boundaries explicit: models may choose concepts, regions, and descriptions; code owns persisted IDs, boxes, confidence scores, embeddings, nearest-neighbor search, product IDs, and similarity values.
 - Start with a few hand-authored evals later; future product signals should create eval candidates, not automatic ground truth.
+- For demo simplicity, development and production share the same real service keys and infrastructure values. Do not add fake, deterministic, stubbed, or local-only model/data paths for dev convenience unless the user explicitly asks for a test-only harness. Catalog vector creation and similar workflows should use the real production model services and persisted production-style data paths.
 
 ## Git Ownership
 

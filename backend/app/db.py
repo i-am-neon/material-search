@@ -13,6 +13,11 @@ def get_connection() -> Iterator[Connection]:
     if not settings.database_url:
         raise RuntimeError("DATABASE_URL is required for database-backed catalog operations")
 
-    with Connection.connect(settings.database_url, row_factory=dict_row) as conn:
+    # Supabase's production pooler is transaction-pooled; disable psycopg prepared
+    # statements so catalog indexing can reuse pooled connections safely.
+    with Connection.connect(
+        settings.database_url,
+        row_factory=dict_row,
+        prepare_threshold=None,
+    ) as conn:
         yield conn
-

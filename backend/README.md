@@ -12,19 +12,22 @@ pip install -e ".[dev]"
 ```
 
 Create `backend/.env`. For this interview project, local development and prod
-use the same service values to keep deployment simple:
+use the same real service values to keep the demo path simple. Use the Supabase
+pooler connection string for `DATABASE_URL`; the direct database host can be
+IPv6-only and is less reliable from local machines and CI:
 
 ```dotenv
-DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
-REDIS_URL=redis://localhost:6379/0
-EMBEDDING_SERVICE_URL=http://localhost:8081
+DATABASE_URL=postgresql://postgres.project-ref:password@aws-0-region.pooler.supabase.com:6543/postgres
+REDIS_URL=redis://default:password@host:6379
+EMBEDDING_SERVICE_URL=https://modal-embedding-service.example.com
 EMBEDDING_MODEL_ID=google/siglip2-so400m-patch14-384
 EMBEDDING_DIMENSIONS=1152
 GEMINI_API_KEY=
 ```
 
-Apply the Supabase migration in `../supabase/migrations/0001_catalog_vector_enrichment.sql`.
-See `../infra/README.md` for infrastructure-as-code scripts and provider setup.
+Apply the Supabase migration in `../supabase/migrations/0001_catalog_vector_enrichment.sql`
+to the production project. See `../infra/README.md` for infrastructure-as-code
+scripts and provider setup.
 
 ## Production
 
