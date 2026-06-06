@@ -54,6 +54,9 @@ Current Render resources:
 - API service: `material-search-api`
 - Service ID: `srv-d8i45j58nd3s73e1u29g`
 - URL: `https://material-search-api.onrender.com`
+- Key Value: `material-search-redis`
+- Key Value ID: `red-d8i9bbbtqb8s73atuspg`
+- Key Value plan: `free`
 
 Every push to `main` redeploys the API through
 `.github/workflows/deploy-api.yml`. The workflow triggers a Render deploy for
@@ -157,11 +160,18 @@ Pushes to `main` always redeploy the GitHub Pages UI through
 
 ## Async Search Runs
 
-The durable `/search/runs` path still needs a cloud Redis URL and a running
-Dramatiq worker service. The current Render account has only the free web API
-service; Render background workers require a paid worker plan. Until Redis and a
-worker are provisioned, `/search/segment-matches` is the deployed synchronous
-demo path and `/search/runs` should be expected to return queue unavailable.
+The durable `/search/runs` path uses the free Render Key Value instance above
+for Redis-compatible queue storage. `REDIS_URL` is configured directly on the
+Render API service with the Key Value internal connection string. Do not copy a
+local `REDIS_URL` from `backend/.env` into Render unless it points at the
+Render Key Value instance.
+
+A free Render background worker could not be created. Render accepted the free
+Key Value instance, but rejected/failed the `background_worker` service creation
+attempt with the free plan. Until a paid worker plan or another free long-lived
+worker host is provisioned, `/search/runs` can enqueue and return `202`, but
+runs remain `queued`. `/search/segment-matches` remains the deployed
+synchronous demo path.
 
 `RENDER_OWNER_ID` is the workspace ID from Render workspace settings. You can
 also list it after setting `RENDER_API_KEY`:
