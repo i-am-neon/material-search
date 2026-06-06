@@ -4,7 +4,8 @@ import { Link } from "react-router-dom";
 import {
   type SegmentMatchResponse,
   type SegmentRegionMatchSetResponse,
-  segmentMatches,
+  createSearchRun,
+  getSearchRunStatus,
   uploadSearchImage,
 } from "../api";
 import { defaultPrompt, getRunStages, matchesByRegion, regions } from "../demoData";
@@ -27,10 +28,12 @@ export function SearchWorkbench({ initialScenario = "complete" }: SearchWorkbenc
   const [selectedFileName, setSelectedFileName] = React.useState<string | undefined>();
   const [previewUrl, setPreviewUrl] = React.useState<string | undefined>();
   const [runResult, setRunResult] = React.useState<SegmentMatchResponse | null>(null);
+  const [activeRunId, setActiveRunId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const previewObjectUrlRef = React.useRef<string | null>(null);
+  const runSequenceRef = React.useRef(0);
   const dynamicRegions = runResult ? mapRunRegions(runResult) : null;
-  const activeRegions = dynamicRegions ?? regions;
+  const activeRegions = dynamicRegions?.length ? dynamicRegions : regions;
   const selectedRegion =
     activeRegions.find((region) => region.id === selectedRegionId) ?? activeRegions[0];
   const selectedMatches =
@@ -40,7 +43,7 @@ export function SearchWorkbench({ initialScenario = "complete" }: SearchWorkbenc
         ? matchesByRegion[selectedRegion.id]
         : [];
   const stageLabel =
-    runResult?.run_id.slice(0, 8).toUpperCase() ??
+    (runResult?.run_id ?? activeRunId)?.slice(0, 8).toUpperCase() ??
     (scenario === "empty" ? "NEW RUN" : scenario === "failed" ? "RUN-2406-F" : "RUN-2406");
   const isRunning = scenario === "planning" || scenario === "matching";
 
@@ -62,6 +65,7 @@ export function SearchWorkbench({ initialScenario = "complete" }: SearchWorkbenc
     setSelectedFile(file);
     setSelectedFileName(file.name);
     setRunResult(null);
+    setActiveRunId(null);
     setCartIds([]);
     setError(null);
     setScenario("empty");
@@ -80,6 +84,7 @@ export function SearchWorkbench({ initialScenario = "complete" }: SearchWorkbenc
       setSelectedFile(file);
       setSelectedFileName(sample.name);
       setRunResult(null);
+      setActiveRunId(null);
       setCartIds([]);
       setScenario("empty");
       setSelectedRegionId(regions[0].id);
@@ -101,12 +106,14 @@ export function SearchWorkbench({ initialScenario = "complete" }: SearchWorkbenc
 
     setError(null);
     setRunResult(null);
+    setActiveRunId(null);
     setCartIds([]);
     setScenario("planning");
+    const runSequence = runSequenceRef.current + 1;
+    runSequenceRef.current = runSequence;
     try {
       const uploaded = await uploadSearchImage(selectedFile);
-      setScenario("matching");
-      const result = await segmentMatches({
+      const accepted = await createSearchRun({
         image_object_key: uploaded.image_object_key,
         prompt,
         confidence_threshold: 0.45,
@@ -115,17 +122,29 @@ export function SearchWorkbench({ initialScenario = "complete" }: SearchWorkbenc
         matches_per_region: 6,
         min_similarity: 0,
       });
+      if (runSequence !== runSequenceRef.current) {
+        return;
+      }
+      setActiveRunId(accepted.run_id);
+      setScenario("matching");
+      const result = await pollSearchRun(accepted.run_id);
+      if (runSequence !== runSequenceRef.current) {
+        return;
+      }
       setRunResult(result);
       setSelectedRegionId(result.regions[0]?.region.id ?? regions[0].id);
       setScenario("complete");
     } catch (runError) {
+      if (runSequence !== runSequenceRef.current) {
+        return;
+      }
       setError(runError instanceof Error ? runError.message : "Search failed");
       setScenario("failed");
     }
   };
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${scenario === "empty" ? "intake-shell" : ""}`}>
       <header className="topbar">
         <div className="brand-mark" aria-hidden="true">
           <Layers3 size={22} />
@@ -149,43 +168,84 @@ export function SearchWorkbench({ initialScenario = "complete" }: SearchWorkbenc
         </div>
       </header>
 
-      <section className="workspace-grid">
+      {scenario === "empty" ? (
         <SearchSetup
           scenario={scenario}
           prompt={prompt}
           selectedFileName={selectedFileName}
+          previewUrl={previewUrl}
           isRunning={isRunning}
           error={error}
+          layout="page"
           onPromptChange={setPrompt}
           onFileSelect={handleFileSelect}
           onSampleSelect={handleSampleSelect}
           onRun={handleRun}
         />
-
-        <div className="center-stack">
-          <RunTimeline stages={getRunStages(scenario)} runLabel={stageLabel} />
-          <RegionCanvas
-            regions={activeRegions}
-            selectedRegionId={selectedRegionId}
+      ) : (
+        <section className="workspace-grid">
+          <SearchSetup
             scenario={scenario}
-            imageSrc={previewUrl}
-            imageTitle={selectedFileName ? "Uploaded reference" : undefined}
-            imageAlt={selectedFileName ?? undefined}
-            imageWidth={runResult?.image_width}
-            imageHeight={runResult?.image_height}
-            onSelectRegion={setSelectedRegionId}
+            prompt={prompt}
+            selectedFileName={selectedFileName}
+            previewUrl={previewUrl}
+            isRunning={isRunning}
+            error={error}
+            onPromptChange={setPrompt}
+            onFileSelect={handleFileSelect}
+            onSampleSelect={handleSampleSelect}
+            onRun={handleRun}
           />
-        </div>
 
-        <RegionInspector
-          region={selectedRegion}
-          matches={selectedMatches}
-          cartIds={cartIds}
-          onToggleCart={handleToggleCart}
-        />
-      </section>
+          <div className="center-stack">
+            <RunTimeline stages={getRunStages(scenario)} runLabel={stageLabel} />
+            <RegionCanvas
+              regions={activeRegions}
+              selectedRegionId={selectedRegionId}
+              scenario={scenario}
+              imageSrc={previewUrl}
+              imageTitle={selectedFileName ? "Uploaded reference" : undefined}
+              imageAlt={selectedFileName ?? undefined}
+              imageWidth={runResult?.image_width}
+              imageHeight={runResult?.image_height}
+              onSelectRegion={setSelectedRegionId}
+            />
+          </div>
+
+          <RegionInspector
+            region={selectedRegion}
+            matches={selectedMatches}
+            cartIds={cartIds}
+            onToggleCart={handleToggleCart}
+          />
+        </section>
+      )}
     </main>
   );
+}
+
+const SEARCH_POLL_INTERVAL_MS = 2000;
+const SEARCH_POLL_ATTEMPTS = 90;
+
+async function pollSearchRun(runId: string): Promise<SegmentMatchResponse> {
+  for (let attempt = 0; attempt < SEARCH_POLL_ATTEMPTS; attempt += 1) {
+    const status = await getSearchRunStatus(runId);
+    if (status.run.status === "completed") {
+      if (!status.result) {
+        throw new Error("Search completed without persisted results.");
+      }
+      return status.result;
+    }
+    if (status.run.status === "failed") {
+      throw new Error(status.run.error ?? "Search failed");
+    }
+    await delay(SEARCH_POLL_INTERVAL_MS);
+  }
+  throw new Error("Search is still running. Try refreshing the run status.");
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 async function fileFromSample(sample: SampleImageOption): Promise<File> {
