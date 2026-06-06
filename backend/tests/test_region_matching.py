@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from math import sqrt
 from uuid import UUID, uuid4
 
+import httpx
 import pytest
 
 from app.catalog.schemas import CatalogItem, CatalogMatch
@@ -27,6 +28,21 @@ class RecordingEmbeddingClient:
             }
         )
         return self.embedding
+
+
+class RateLimitedEmbeddingClient:
+    def embed_image(self, **kwargs):
+        request = httpx.Request("POST", "https://embedding.example.com/embed-image")
+        response = httpx.Response(
+            429,
+            request=request,
+            text="modal-http: Webhook failed: workspace billing cycle spend limit reached",
+        )
+        raise httpx.HTTPStatusError(
+            "Client error '429 Too Many Requests'",
+            request=request,
+            response=response,
+        )
 
 
 class RecordingCatalogRepository:
@@ -95,6 +111,15 @@ class InMemoryVectorCatalogRepository(RecordingCatalogRepository):
             for match in sorted(scored, key=lambda match: match.similarity, reverse=True)
             if match.similarity >= min_similarity
         ][:limit]
+
+
+class ListingCatalogRepository(RecordingCatalogRepository):
+    def __init__(self, items: list[CatalogItem]):
+        super().__init__(matches=[])
+        self.items = items
+
+    def list_items(self, limit: int = 100, offset: int = 0) -> list[CatalogItem]:
+        return self.items[offset : offset + limit]
 
 
 def test_match_region_embeds_crop_and_searches_catalog():
@@ -226,6 +251,33 @@ def test_match_region_returns_empty_matches_when_catalog_has_no_hits():
 
     assert result.matches == []
     assert repository.search_calls[0]["min_similarity"] == 0.4
+
+
+def test_match_region_falls_back_to_catalog_listing_on_embedding_429():
+    repository = ListingCatalogRepository(
+        [
+            make_item(name="Honed Limestone", material_family="stone"),
+            make_item(name="Green Performance Boucle", material_family="textile"),
+            make_item(name="White Oak", material_family="wood"),
+        ]
+    )
+
+    result = RegionMatcher(repository, RateLimitedEmbeddingClient()).match_region(
+        RegionMatchRequest(
+            region_id="green_upholstery__coarse_image_region_0",
+            crop_object_key="runs/run-1/regions/coarse/crop.jpg",
+            model_id="test-model",
+            dimensions=3,
+            limit=2,
+            min_similarity=0.0,
+        )
+    )
+
+    assert [ranked.match.item.name for ranked in result.matches] == [
+        "Green Performance Boucle",
+        "Honed Limestone",
+    ]
+    assert result.matches[0].match.similarity > result.matches[1].match.similarity
 
 
 def make_item(name: str, material_family: str = "textile") -> CatalogItem:
