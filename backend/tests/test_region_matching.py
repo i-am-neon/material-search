@@ -207,6 +207,27 @@ def test_region_matching_eval_ranks_nearest_catalog_material():
     assert result.matches[0].match.similarity > result.matches[1].match.similarity
 
 
+def test_match_region_returns_empty_matches_when_catalog_has_no_hits():
+    embedding_client = RecordingEmbeddingClient(
+        ImageEmbedding(model_id="test-model", dimensions=3, embedding=[0.1, 0.2, 0.3])
+    )
+    repository = RecordingCatalogRepository([])
+
+    result = RegionMatcher(repository, embedding_client).match_region(
+        RegionMatchRequest(
+            region_id="sam3-region-1",
+            crop_object_key="runs/run-1/regions/sam3-region-1/crop.jpg",
+            model_id="test-model",
+            dimensions=3,
+            limit=5,
+            min_similarity=0.4,
+        )
+    )
+
+    assert result.matches == []
+    assert repository.search_calls[0]["min_similarity"] == 0.4
+
+
 def make_item(name: str, material_family: str = "textile") -> CatalogItem:
     now = datetime.now(UTC)
     return CatalogItem(

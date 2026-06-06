@@ -144,3 +144,43 @@ def test_http_sam3_client_rejects_wrong_model(monkeypatch):
             prompt="shoe",
             image_url="https://example.com/image.jpg",
         )
+
+
+def test_http_sam3_client_rejects_too_many_regions(monkeypatch):
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "model_id": "facebook/sam3",
+                "image_width": 640,
+                "image_height": 480,
+                "prompt": "shoe",
+                "regions": [
+                    {
+                        "id": "sam3_region_0",
+                        "prompt": "shoe",
+                        "score": 0.91,
+                        "box_xyxy": [10.0, 12.0, 100.0, 120.0],
+                    },
+                    {
+                        "id": "sam3_region_1",
+                        "prompt": "shoe",
+                        "score": 0.88,
+                        "box_xyxy": [110.0, 12.0, 200.0, 120.0],
+                    },
+                ],
+            }
+
+    monkeypatch.setattr(
+        "app.model_services.segmentation.httpx.post",
+        lambda *args, **kwargs: FakeResponse(),
+    )
+
+    with pytest.raises(ValueError, match="expected at most 1"):
+        HttpSam3Client("https://sam3.example.com").segment_image(
+            prompt="shoe",
+            image_url="https://example.com/image.jpg",
+            max_regions=1,
+        )
