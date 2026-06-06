@@ -263,8 +263,8 @@ function mapRunRegions(result: SegmentMatchResponse): MaterialRegion[] {
     const confidence = confidenceLabel(region.score);
     return {
       id: region.id,
-      label: `Region ${index + 1}`,
-      material: region.prompt,
+      label: result.regions[index].target_label ?? `Region ${index + 1}`,
+      material: result.regions[index].target_label ?? region.prompt,
       confidence,
       box: {
         left: percent(x0, result.image_width),
@@ -273,7 +273,7 @@ function mapRunRegions(result: SegmentMatchResponse): MaterialRegion[] {
         height: percent(y1 - y0, result.image_height),
       },
       note: `SAM3 identified this area with ${Math.round(region.score * 100)}% confidence.`,
-      searchIntent: result.prompt,
+      searchIntent: result.plan?.user_intent_summary ?? result.prompt,
       included: true,
       score: region.score,
     };

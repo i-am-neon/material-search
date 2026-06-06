@@ -6,7 +6,11 @@ from typing import Any
 from app.catalog.repository import PostgresCatalogRepository
 from app.core.config import Settings, get_settings
 from app.db import get_connection
-from app.model_services.factory import get_embedding_client, get_sam3_client
+from app.model_services.factory import (
+    get_embedding_client,
+    get_material_planner_client,
+    get_sam3_client,
+)
 from app.model_services.sam3_smoke import DEFAULT_SMOKE_IMAGE_URL
 from app.search.artifacts import get_region_artifact_store
 from app.search.repository import PostgresSearchRunRepository
@@ -79,6 +83,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         response = SegmentCatalogMatchService(
             sam3_client=get_sam3_client(),
+            planner_client=get_material_planner_client(),
             artifact_store=get_region_artifact_store(),
             embedding_client=get_embedding_client(),
             catalog_repository=catalog_repository,
@@ -106,6 +111,8 @@ def _validate_settings(settings: Settings) -> None:
         missing.append("SAM3_SERVICE_URL")
     if settings.embedding_service_url is None:
         missing.append("EMBEDDING_SERVICE_URL")
+    if not settings.gemini_api_key:
+        missing.append("GEMINI_API_KEY")
     if missing:
         raise RuntimeError(
             "Production smoke requires real service configuration: " + ", ".join(missing)

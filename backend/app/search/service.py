@@ -2,6 +2,7 @@ from uuid import UUID, uuid4
 
 from app.catalog.repository import CatalogRepository
 from app.model_services.embeddings import EmbeddingClient
+from app.model_services.planning import MaterialPlannerClient
 from app.model_services.segmentation import Sam3Client
 from app.search.artifacts import RegionArtifactStore
 from app.search.orchestration import MaterialSearchGraph
@@ -17,12 +18,14 @@ class SegmentCatalogMatchService:
         self,
         *,
         sam3_client: Sam3Client,
+        planner_client: MaterialPlannerClient,
         artifact_store: RegionArtifactStore,
         embedding_client: EmbeddingClient,
         catalog_repository: CatalogRepository,
         search_run_repository: SearchRunRepository | None = None,
     ):
         self.sam3_client = sam3_client
+        self.planner_client = planner_client
         self.artifact_store = artifact_store
         self.embedding_client = embedding_client
         self.catalog_repository = catalog_repository
@@ -35,6 +38,7 @@ class SegmentCatalogMatchService:
     def run_existing(self, request: SegmentMatchRequest) -> SegmentMatchResponse:
         return MaterialSearchGraph(
             sam3_client=self.sam3_client,
+            planner_client=self.planner_client,
             artifact_store=self.artifact_store,
             embedding_client=self.embedding_client,
             catalog_repository=self.catalog_repository,

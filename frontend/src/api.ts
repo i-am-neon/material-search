@@ -47,8 +47,26 @@ export type SegmentationRegionResponse = {
   box_xyxy: [number, number, number, number];
 };
 
+export type PlannedMaterialTargetResponse = {
+  target_id: string;
+  label: string;
+  sam3_prompt: string;
+  material_family_hint: string | null;
+  reason: string;
+  priority: number;
+  max_regions: number;
+};
+
+export type MaterialSearchPlanResponse = {
+  user_intent_summary: string;
+  avoid: string[];
+  targets: PlannedMaterialTargetResponse[];
+};
+
 export type SegmentRegionMatchSetResponse = {
   region: SegmentationRegionResponse;
+  target_id: string | null;
+  target_label: string | null;
   crop_object_key: string;
   crop_url: string | null;
   crop_width: number;
@@ -61,6 +79,7 @@ export type SegmentRegionMatchSetResponse = {
 export type SegmentMatchResponse = {
   run_id: string;
   prompt: string;
+  plan: MaterialSearchPlanResponse | null;
   image_width: number;
   image_height: number;
   regions: SegmentRegionMatchSetResponse[];

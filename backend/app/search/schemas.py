@@ -9,6 +9,22 @@ from app.core.config import DEFAULT_EMBEDDING_DIMENSIONS, DEFAULT_EMBEDDING_MODE
 from app.model_services.segmentation import SegmentationRegion
 
 
+class PlannedMaterialTarget(BaseModel):
+    target_id: str = Field(min_length=1, max_length=64)
+    label: str = Field(min_length=1, max_length=120)
+    sam3_prompt: str = Field(min_length=1, max_length=160)
+    material_family_hint: str | None = Field(default=None, max_length=80)
+    reason: str = Field(min_length=1, max_length=500)
+    priority: int = Field(ge=1, le=20)
+    max_regions: int = Field(default=2, ge=1, le=5)
+
+
+class MaterialSearchPlan(BaseModel):
+    user_intent_summary: str = Field(min_length=1, max_length=500)
+    avoid: list[str] = Field(default_factory=list, max_length=12)
+    targets: list[PlannedMaterialTarget] = Field(min_length=1, max_length=8)
+
+
 class RegionMatchRequest(BaseModel):
     region_id: str = Field(min_length=1)
     crop_object_key: str = Field(min_length=1, max_length=1024)
@@ -58,6 +74,8 @@ class SegmentMatchRequest(BaseModel):
 
 class SegmentRegionMatchSet(BaseModel):
     region: SegmentationRegion
+    target_id: str | None = None
+    target_label: str | None = None
     crop_object_key: str
     crop_url: HttpUrl | None = None
     crop_width: int = Field(gt=0)
@@ -70,6 +88,7 @@ class SegmentRegionMatchSet(BaseModel):
 class SegmentMatchResponse(BaseModel):
     run_id: UUID
     prompt: str
+    plan: MaterialSearchPlan | None = None
     image_width: int
     image_height: int
     regions: list[SegmentRegionMatchSet]
@@ -101,6 +120,8 @@ class MaterialSearchRun(BaseModel):
 class MaterialSearchRegionRecord(BaseModel):
     id: UUID
     run_id: UUID
+    target_id: str | None = None
+    target_label: str | None = None
     source_region_id: str
     prompt: str
     score: float

@@ -9,8 +9,10 @@ from app.model_services.segmentation import SegmentationRegion, SegmentationResu
 from app.search.artifacts import RegionArtifact
 from app.search.schemas import (
     MaterialSearchMatchRecord,
+    MaterialSearchPlan,
     MaterialSearchRegionRecord,
     MaterialSearchRun,
+    PlannedMaterialTarget,
     SegmentMatchRequest,
 )
 from app.search.service import SegmentCatalogMatchService
@@ -51,6 +53,29 @@ class FakeSam3Client:
                     prompt=prompt,
                     score=0.91,
                     box_xyxy=[10.0, 20.0, 110.0, 120.0],
+                )
+            ],
+        )
+
+
+class FakePlannerClient:
+    def __init__(self):
+        self.calls: list[SegmentMatchRequest] = []
+
+    def plan_material_search(self, request: SegmentMatchRequest) -> MaterialSearchPlan:
+        self.calls.append(request)
+        return MaterialSearchPlan(
+            user_intent_summary="Search for upholstery",
+            avoid=[],
+            targets=[
+                PlannedMaterialTarget(
+                    target_id="upholstery",
+                    label="Upholstery",
+                    sam3_prompt="upholstery",
+                    material_family_hint="textile",
+                    reason="The user asked for upholstery.",
+                    priority=1,
+                    max_regions=2,
                 )
             ],
         )
@@ -164,6 +189,7 @@ class FakeSearchRunRepository:
         self.replace_region_matches_calls: list[dict] = []
         self.complete_run_calls: list[dict] = []
         self.fail_run_calls: list[dict] = []
+        self.replace_planned_targets_calls: list[dict] = []
         self.region_id = uuid4()
 
     def create_run(
@@ -205,6 +231,15 @@ class FakeSearchRunRepository:
     def clear_run_outputs(self, run_id: UUID) -> None:
         return None
 
+    def replace_planned_targets(self, *, run_id: UUID, plan: MaterialSearchPlan) -> None:
+        self.replace_planned_targets_calls.append(
+            {
+                "run_id": run_id,
+                "target_ids": [target.target_id for target in plan.targets],
+                "avoid": plan.avoid,
+            }
+        )
+
     def complete_run(
         self, *, run_id: UUID, image_width: int, image_height: int
     ) -> MaterialSearchRun:
@@ -245,6 +280,7 @@ class FakeSearchRunRepository:
         self,
         *,
         run_id: UUID,
+        target: PlannedMaterialTarget | None,
         region: SegmentationRegion,
         artifact: RegionArtifact,
         embedding_model_id: str,
@@ -253,6 +289,7 @@ class FakeSearchRunRepository:
         self.create_region_calls.append(
             {
                 "run_id": run_id,
+                "target_id": target.target_id if target else None,
                 "source_region_id": region.id,
                 "artifact_object_key": artifact.object_key,
                 "embedding_model_id": embedding_model_id,
@@ -263,6 +300,8 @@ class FakeSearchRunRepository:
         return MaterialSearchRegionRecord(
             id=self.region_id,
             run_id=run_id,
+            target_id=target.target_id if target else None,
+            target_label=target.label if target else None,
             source_region_id=region.id,
             prompt=region.prompt,
             score=region.score,
@@ -322,6 +361,7 @@ def test_segment_catalog_match_service_crops_embeds_and_matches_regions():
 
     response = SegmentCatalogMatchService(
         sam3_client=sam3_client,
+        planner_client=FakePlannerClient(),
         artifact_store=artifact_store,
         embedding_client=embedding_client,
         catalog_repository=repository,
@@ -341,6 +381,9 @@ def test_segment_catalog_match_service_crops_embeds_and_matches_regions():
     )
 
     assert sam3_client.calls[0]["image_object_key"] == "uploads/room.jpg"
+    assert search_repository.replace_planned_targets_calls == [
+        {"run_id": run_id, "target_ids": ["upholstery"], "avoid": []}
+    ]
     assert artifact_store.calls == [
         {
             "run_id": str(run_id),
@@ -365,6 +408,7 @@ def test_segment_catalog_match_service_crops_embeds_and_matches_regions():
     assert search_repository.create_region_calls == [
         {
             "run_id": run_id,
+            "target_id": "upholstery",
             "source_region_id": "sam3_region_0",
             "artifact_object_key": f"runs/{run_id}/regions/sam3_region_0/crop.jpg",
             "embedding_model_id": "test-model",
@@ -384,6 +428,9 @@ def test_segment_catalog_match_service_crops_embeds_and_matches_regions():
     ]
     assert search_repository.fail_run_calls == []
     assert response.run_id == run_id
+    assert response.plan is not None
+    assert response.plan.targets[0].sam3_prompt == "upholstery"
+    assert response.regions[0].target_id == "upholstery"
     assert response.regions[0].region.id == "sam3_region_0"
     assert response.regions[0].crop_width == 100
     assert response.regions[0].matches[0].rank == 1
@@ -397,6 +444,7 @@ def test_segment_catalog_match_service_marks_run_failed_on_error():
     with pytest.raises(RuntimeError, match="SAM3 unavailable"):
         SegmentCatalogMatchService(
             sam3_client=FailingSam3Client(),
+            planner_client=FakePlannerClient(),
             artifact_store=FakeArtifactStore(),
             embedding_client=FakeEmbeddingClient(),
             catalog_repository=FakeCatalogRepository(),

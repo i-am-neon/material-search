@@ -2,7 +2,11 @@ import dramatiq
 
 from app.catalog.repository import PostgresCatalogRepository
 from app.db import get_connection
-from app.model_services.factory import get_embedding_client, get_sam3_client
+from app.model_services.factory import (
+    get_embedding_client,
+    get_material_planner_client,
+    get_sam3_client,
+)
 from app.search.artifacts import get_region_artifact_store
 from app.search.repository import PostgresSearchRunRepository
 from app.search.schemas import SegmentMatchRequest
@@ -31,6 +35,7 @@ def run_search(request: SegmentMatchRequest) -> None:
 
         SegmentCatalogMatchService(
             sam3_client=get_sam3_client(),
+            planner_client=get_material_planner_client(),
             artifact_store=get_region_artifact_store(),
             embedding_client=get_embedding_client(),
             catalog_repository=catalog_repository,

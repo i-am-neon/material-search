@@ -10,8 +10,10 @@ from app.model_services.segmentation import SegmentationMask, SegmentationRegion
 from app.search.artifacts import RegionArtifact
 from app.search.schemas import (
     MaterialSearchMatchRecord,
+    MaterialSearchPlan,
     MaterialSearchRegionRecord,
     MaterialSearchRun,
+    PlannedMaterialTarget,
     RankedRegionMatch,
     SearchRunStatus,
     SegmentMatchRequest,
@@ -40,6 +42,10 @@ class SearchRunRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def replace_planned_targets(self, *, run_id: UUID, plan: MaterialSearchPlan) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
     def complete_run(
         self, *, run_id: UUID, image_width: int, image_height: int
     ) -> MaterialSearchRun:
@@ -54,6 +60,7 @@ class SearchRunRepository(ABC):
         self,
         *,
         run_id: UUID,
+        target: PlannedMaterialTarget | None,
         region: SegmentationRegion,
         artifact: RegionArtifact,
         embedding_model_id: str,
@@ -128,10 +135,41 @@ class PostgresSearchRunRepository(SearchRunRepository):
         return _require_row(row, f"Material search run {run_id} does not exist")
 
     def clear_run_outputs(self, run_id: UUID) -> None:
-        self.conn.execute(
-            "delete from material_search_regions where run_id = %s",
-            (run_id,),
-        )
+        self.conn.execute("delete from material_search_regions where run_id = %s", (run_id,))
+        self.conn.execute("delete from material_search_targets where run_id = %s", (run_id,))
+        self.conn.commit()
+
+    def replace_planned_targets(self, *, run_id: UUID, plan: MaterialSearchPlan) -> None:
+        with self.conn.transaction():
+            self.conn.execute("delete from material_search_targets where run_id = %s", (run_id,))
+            for target in plan.targets:
+                self.conn.execute(
+                    """
+                    insert into material_search_targets (
+                      run_id,
+                      target_id,
+                      label,
+                      sam3_prompt,
+                      material_family_hint,
+                      reason,
+                      priority,
+                      max_regions,
+                      avoid
+                    )
+                    values (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+                    """,
+                    (
+                        run_id,
+                        target.target_id,
+                        target.label,
+                        target.sam3_prompt,
+                        target.material_family_hint,
+                        target.reason,
+                        target.priority,
+                        target.max_regions,
+                        Jsonb(plan.avoid),
+                    ),
+                )
         self.conn.commit()
 
     def complete_run(
@@ -170,6 +208,7 @@ class PostgresSearchRunRepository(SearchRunRepository):
         self,
         *,
         run_id: UUID,
+        target: PlannedMaterialTarget | None,
         region: SegmentationRegion,
         artifact: RegionArtifact,
         embedding_model_id: str,
@@ -179,6 +218,8 @@ class PostgresSearchRunRepository(SearchRunRepository):
             """
             insert into material_search_regions (
               run_id,
+              target_id,
+              target_label,
               source_region_id,
               prompt,
               score,
@@ -191,11 +232,15 @@ class PostgresSearchRunRepository(SearchRunRepository):
               embedding_dimensions,
               status
             )
-            values (%s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s, %s, 'matched')
+            values (
+              %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s, %s, 'matched'
+            )
             returning *
             """,
             (
                 run_id,
+                target.target_id if target else None,
+                target.label if target else None,
                 region.id,
                 region.prompt,
                 region.score,
@@ -267,12 +312,43 @@ class PostgresSearchRunRepository(SearchRunRepository):
         ).fetchall()
 
         regions = [self._region_match_set(row) for row in region_rows]
+        plan = self._get_run_plan(run_id)
         return SegmentMatchResponse(
             run_id=run.id,
             prompt=run.prompt,
+            plan=plan,
             image_width=run.image_width,
             image_height=run.image_height,
             regions=regions,
+        )
+
+    def _get_run_plan(self, run_id: UUID) -> MaterialSearchPlan | None:
+        rows = self.conn.execute(
+            """
+            select *
+            from material_search_targets
+            where run_id = %s
+            order by priority asc
+            """,
+            (run_id,),
+        ).fetchall()
+        if not rows:
+            return None
+        return MaterialSearchPlan(
+            user_intent_summary="Planned material targets",
+            avoid=rows[0]["avoid"] or [],
+            targets=[
+                PlannedMaterialTarget(
+                    target_id=row["target_id"],
+                    label=row["label"],
+                    sam3_prompt=row["sam3_prompt"],
+                    material_family_hint=row["material_family_hint"],
+                    reason=row["reason"],
+                    priority=row["priority"],
+                    max_regions=row["max_regions"],
+                )
+                for row in rows
+            ],
         )
 
     def _region_match_set(self, row: dict[str, Any]) -> SegmentRegionMatchSet:
@@ -307,6 +383,8 @@ class PostgresSearchRunRepository(SearchRunRepository):
                 box_xyxy=row["box_xyxy"],
                 mask=SegmentationMask.model_validate(row["mask"]) if row["mask"] else None,
             ),
+            target_id=row["target_id"],
+            target_label=row["target_label"],
             crop_object_key=row["crop_object_key"],
             crop_url=None,
             crop_width=row["crop_width"],

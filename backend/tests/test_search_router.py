@@ -7,15 +7,21 @@ from app.catalog.dependencies import get_catalog_repository
 from app.catalog.schemas import CatalogItem, CatalogMatch
 from app.main import create_app
 from app.model_services.embeddings import ImageEmbedding
-from app.model_services.factory import get_embedding_client, get_sam3_client
+from app.model_services.factory import (
+    get_embedding_client,
+    get_material_planner_client,
+    get_sam3_client,
+)
 from app.model_services.segmentation import SegmentationRegion, SegmentationResult
 from app.search.artifacts import RegionArtifact, get_region_artifact_store
 from app.search.dependencies import get_search_run_repository
 from app.search.router import get_search_run_dispatcher
 from app.search.schemas import (
     MaterialSearchMatchRecord,
+    MaterialSearchPlan,
     MaterialSearchRegionRecord,
     MaterialSearchRun,
+    PlannedMaterialTarget,
     SegmentMatchRequest,
     SegmentMatchResponse,
     SegmentRegionMatchSet,
@@ -49,6 +55,25 @@ class FakeArtifactStore:
             signed_url=f"https://example.com/signed/{region.id}.jpg",
             width=100,
             height=120,
+        )
+
+
+class FakePlannerClient:
+    def plan_material_search(self, request: SegmentMatchRequest) -> MaterialSearchPlan:
+        return MaterialSearchPlan(
+            user_intent_summary="Search for upholstery",
+            avoid=[],
+            targets=[
+                PlannedMaterialTarget(
+                    target_id="upholstery",
+                    label="Upholstery",
+                    sam3_prompt=request.prompt,
+                    material_family_hint="textile",
+                    reason="The user asked for upholstery.",
+                    priority=1,
+                    max_regions=2,
+                )
+            ],
         )
 
 
@@ -125,6 +150,9 @@ class FakeSearchRunRepository:
     def clear_run_outputs(self, run_id: UUID) -> None:
         return None
 
+    def replace_planned_targets(self, *, run_id: UUID, plan: MaterialSearchPlan) -> None:
+        return None
+
     def complete_run(
         self, *, run_id: UUID, image_width: int, image_height: int
     ) -> MaterialSearchRun:
@@ -163,6 +191,7 @@ class FakeSearchRunRepository:
         self,
         *,
         run_id: UUID,
+        target: PlannedMaterialTarget | None,
         region: SegmentationRegion,
         artifact: RegionArtifact,
         embedding_model_id: str,
@@ -172,6 +201,8 @@ class FakeSearchRunRepository:
         return MaterialSearchRegionRecord(
             id=uuid4(),
             run_id=run_id,
+            target_id=target.target_id if target else None,
+            target_label=target.label if target else None,
             source_region_id=region.id,
             prompt=region.prompt,
             score=region.score,
@@ -246,6 +277,7 @@ def test_segment_matches_endpoint_returns_region_catalog_matches():
     app = create_app()
     app.dependency_overrides[get_catalog_repository] = lambda: FakeCatalogRepository()
     app.dependency_overrides[get_region_artifact_store] = lambda: FakeArtifactStore()
+    app.dependency_overrides[get_material_planner_client] = lambda: FakePlannerClient()
     app.dependency_overrides[get_sam3_client] = lambda: FakeSam3Client()
     app.dependency_overrides[get_embedding_client] = lambda: FakeEmbeddingClient()
     app.dependency_overrides[get_search_run_repository] = lambda: FakeSearchRunRepository()
@@ -267,6 +299,7 @@ def test_segment_matches_endpoint_returns_region_catalog_matches():
     payload = response.json()
     assert payload["run_id"] == str(run_id)
     assert payload["regions"][0]["region"]["id"] == "sam3_region_0"
+    assert payload["regions"][0]["target_id"] == "upholstery"
     assert (
         payload["regions"][0]["crop_object_key"]
         == f"runs/{run_id}/regions/sam3_region_0/crop.jpg"

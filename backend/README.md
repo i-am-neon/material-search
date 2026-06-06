@@ -80,7 +80,7 @@ The GitHub Action needs these repository secrets:
 - `EMBEDDING_SERVICE_URL`
 - `SAM3_SERVICE_URL`
 
-The future Gemini planning/orchestration path also needs:
+The Gemini planning path also needs:
 
 - `GEMINI_API_KEY`
 
@@ -205,10 +205,12 @@ material prompt. The API creates a queued run row, enqueues a `search-runs`
 Dramatiq job, and returns a `run_id` immediately. The client polls
 `GET /search/runs/{run_id}` until the worker marks the run completed or failed.
 
-The worker runs the LangGraph material-search graph: it asks SAM3 for regions,
-crops each returned region, uploads the crop to the generated-artifacts bucket,
-signs the crop URL, embeds that crop with SigLIP, stores run/region/match rows in
-Postgres, and persists ranked catalog matches from pgvector.
+The worker runs the LangGraph material-search graph: it asks Gemini to turn the
+image and natural-language request into material targets and SAM3 prompts, stores
+those planned targets, asks SAM3 for regions per target, crops each returned
+region, uploads the crop to the generated-artifacts bucket, signs the crop URL,
+embeds that crop with SigLIP, stores run/target/region/match rows in Postgres,
+and persists ranked catalog matches from pgvector.
 
 `POST /search/segment-matches` remains available as a synchronous compatibility
 endpoint, but new UI flows should use the durable run API.

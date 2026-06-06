@@ -93,6 +93,21 @@ flowchart TB
 - Use SigLIP 2 for material retrieval because the catalog and query crops need to share one modern image-embedding space. The same model version should embed both catalog photos and user-image crops.
 - Keep the trust boundary explicit: models can choose concepts, regions, and descriptions, but code owns persisted IDs, boxes, confidence scores, embeddings, nearest-neighbor search, product IDs, and similarity values.
 
+## LLM Decides Intent, Code Owns Evidence
+
+The LLM is responsible for interpreting the user's natural-language request and
+the reference image into material targets, SAM3 prompts, priorities, and
+explanatory intent. Code is responsible for evidence: persisted run IDs,
+planned target rows, SAM3 boxes/masks/scores, crop artifacts, embedding vectors,
+catalog item IDs, similarity values, and final stored results. Negative
+preferences such as "avoid anything too glossy" should first be captured as
+planner metadata; they should only affect filtering/ranking once
+there is explicit evidence in catalog metadata or retrieval signals.
+
+Follow-up note: add planner evals later for constraint handling, including a
+case like "Find materials like the floor and green seating, but avoid anything
+too glossy."
+
 ## Scalability
 
 - Treat each material search as a durable run, not a one-off in-memory request.
