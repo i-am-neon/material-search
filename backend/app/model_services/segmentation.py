@@ -11,6 +11,7 @@ import httpx
 from pydantic import BaseModel, Field
 
 SAM3_MODEL_ID = "facebook/sam3"
+COARSE_IMAGE_SEGMENTATION_MODEL_ID = "coarse-image-box-fallback"
 GEMINI_BOX_SEGMENTATION_MODEL_ID = "gemini-3.5-flash-box-segmentation"
 GEMINI_GENERATE_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
@@ -178,6 +179,66 @@ class FallbackSegmentationClient(Sam3Client):
         )
 
 
+class CoarseImageSegmentationClient(Sam3Client):
+    def __init__(
+        self,
+        *,
+        supabase_url: str | None = None,
+        service_role_key: str | None = None,
+        uploaded_image_bucket: str = "uploaded-images",
+    ):
+        self.supabase_url = supabase_url.rstrip("/") if supabase_url else None
+        self.service_role_key = service_role_key
+        self.uploaded_image_bucket = uploaded_image_bucket
+
+    def segment_image(
+        self,
+        *,
+        prompt: str,
+        image_object_key: str | None = None,
+        image_url: str | None = None,
+        confidence_threshold: float = 0.5,
+        max_regions: int = 20,
+        include_masks: bool = False,
+    ) -> SegmentationResult:
+        width, height = self._load_image_size(
+            image_object_key=image_object_key,
+            image_url=image_url,
+        )
+        return SegmentationResult(
+            model_id=COARSE_IMAGE_SEGMENTATION_MODEL_ID,
+            image_width=width,
+            image_height=height,
+            prompt=prompt,
+            regions=[
+                SegmentationRegion(
+                    id="coarse_image_region_0",
+                    prompt=prompt,
+                    score=0.2,
+                    box_xyxy=[0.0, 0.0, float(width), float(height)],
+                )
+            ],
+        )
+
+    def _load_image_size(
+        self,
+        *,
+        image_object_key: str | None,
+        image_url: str | None,
+    ) -> tuple[int, int]:
+        image_bytes = _load_image_bytes(
+            image_object_key=image_object_key,
+            image_url=image_url,
+            supabase_url=self.supabase_url,
+            service_role_key=self.service_role_key,
+            uploaded_image_bucket=self.uploaded_image_bucket,
+        )[0]
+        from PIL import Image
+
+        image = Image.open(BytesIO(image_bytes))
+        return image.size
+
+
 class GeminiBoxSegmentationClient(Sam3Client):
     def __init__(
         self,
@@ -271,28 +332,15 @@ class GeminiBoxSegmentationClient(Sam3Client):
         image_object_key: str | None,
         image_url: str | None,
     ) -> tuple[bytes, str, int, int]:
-        if image_url:
-            response = httpx.get(image_url, timeout=30.0, follow_redirects=True)
-        elif image_object_key:
-            if self.supabase_url is None or not self.service_role_key:
-                raise RuntimeError(
-                    "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required "
-                    "to segment uploaded image object keys with Gemini fallback"
-                )
-            response = httpx.get(
-                self._object_url(image_object_key),
-                headers=self._auth_headers(),
-                timeout=30.0,
-                follow_redirects=True,
-            )
-        else:
-            raise ValueError("Either image_object_key or image_url is required")
-
-        response.raise_for_status()
+        image_bytes, content_type = _load_image_bytes(
+            image_object_key=image_object_key,
+            image_url=image_url,
+            supabase_url=self.supabase_url,
+            service_role_key=self.service_role_key,
+            uploaded_image_bucket=self.uploaded_image_bucket,
+        )
         from PIL import Image
 
-        content_type = response.headers.get("content-type", "").split(";", maxsplit=1)[0]
-        image_bytes = response.content
         image = Image.open(BytesIO(image_bytes))
         width, height = image.size
         return (
@@ -329,6 +377,40 @@ class MissingSam3Client(Sam3Client):
 
 def _quote_key(object_key: str) -> str:
     return quote(object_key.lstrip("/"), safe="/")
+
+
+def _load_image_bytes(
+    *,
+    image_object_key: str | None,
+    image_url: str | None,
+    supabase_url: str | None,
+    service_role_key: str | None,
+    uploaded_image_bucket: str,
+) -> tuple[bytes, str]:
+    if image_url:
+        response = httpx.get(image_url, timeout=30.0, follow_redirects=True)
+    elif image_object_key:
+        if supabase_url is None or not service_role_key:
+            raise RuntimeError(
+                "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required "
+                "to segment uploaded image object keys"
+            )
+        quoted_key = quote(image_object_key.lstrip("/"), safe="/")
+        response = httpx.get(
+            f"{supabase_url}/storage/v1/object/{uploaded_image_bucket}/{quoted_key}",
+            headers={
+                "apikey": service_role_key,
+                "authorization": f"Bearer {service_role_key}",
+            },
+            timeout=30.0,
+            follow_redirects=True,
+        )
+    else:
+        raise ValueError("Either image_object_key or image_url is required")
+
+    response.raise_for_status()
+    content_type = response.headers.get("content-type", "").split(";", maxsplit=1)[0]
+    return response.content, content_type
 
 
 def _box_segmentation_prompt(

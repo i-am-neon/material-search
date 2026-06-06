@@ -106,7 +106,9 @@ If Modal returns `429` with `workspace billing cycle spend limit reached`, the
 SAM3 app cannot run again until the workspace budget resets or is raised. The
 backend keeps the demo usable by falling back to Gemini-generated material
 bounding boxes for segmentation, then continues through the same crop,
-embedding, and catalog-search path.
+embedding, and catalog-search path. If Gemini is also rate-limited, the backend
+uses a coarse full-image region as a final free-tier fallback so the run can
+still complete without paid GPU capacity.
 
 The secret must include `HF_TOKEN` with accepted access to the gated
 `facebook/sam3` Hugging Face repo. Add Supabase storage values to the same

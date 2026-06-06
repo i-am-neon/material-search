@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from app.model_services.segmentation import (
+    CoarseImageSegmentationClient,
     FallbackSegmentationClient,
     GeminiBoxSegmentationClient,
     HttpSam3Client,
@@ -288,6 +289,30 @@ def test_fallback_segmentation_client_uses_gemini_on_sam3_429():
         "image_object_key": "uploads/run/ref.png",
         "max_regions": 3,
     }
+
+
+def test_coarse_image_segmentation_client_returns_full_image_region(monkeypatch):
+    class FakeImageResponse:
+        content = _png_bytes(width=320, height=240)
+        headers = {"content-type": "image/png"}
+
+        def raise_for_status(self):
+            return None
+
+    monkeypatch.setattr(
+        "app.model_services.segmentation.httpx.get",
+        lambda *args, **kwargs: FakeImageResponse(),
+    )
+
+    result = CoarseImageSegmentationClient().segment_image(
+        prompt="green upholstery",
+        image_url="https://example.com/room.png",
+    )
+
+    assert result.model_id == "coarse-image-box-fallback"
+    assert result.image_width == 320
+    assert result.image_height == 240
+    assert result.regions[0].box_xyxy == [0.0, 0.0, 320.0, 240.0]
 
 
 def _png_bytes(*, width: int, height: int) -> bytes:

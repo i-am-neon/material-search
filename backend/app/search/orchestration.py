@@ -1,4 +1,6 @@
+import re
 from typing import TypedDict
+from urllib.parse import urlsplit, urlunsplit
 
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel
@@ -61,7 +63,10 @@ class MaterialSearchGraph:
             final_state = self.graph.invoke({"request": request})
         except Exception as exc:
             if self.search_run_repository is not None:
-                self.search_run_repository.fail_run(run_id=request.run_id, error=str(exc))
+                self.search_run_repository.fail_run(
+                    run_id=request.run_id,
+                    error=_safe_error_message(str(exc)),
+                )
             raise
 
         plan = final_state["plan"]
@@ -216,3 +221,18 @@ class MaterialSearchGraph:
                 image_height=state["image_height"],
             )
         return {}
+
+
+def _safe_error_message(message: str) -> str:
+    return re.sub(r"https?://[^\s'\"<>]+", _redact_url_match, message)
+
+
+def _redact_url_match(match: re.Match[str]) -> str:
+    url = match.group(0)
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return url
+    if not parsed.query:
+        return url
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", parsed.fragment))
