@@ -36,6 +36,7 @@ export function MatchCard({ match, inCart, onToggleCart }: MatchCardProps) {
             onClick={() => onToggleCart(match.id)}
           >
             {inCart ? <Check size={16} /> : <Plus size={16} />}
+            <span className="sr-only">{label}</span>
           </button>
         </div>
       </div>
