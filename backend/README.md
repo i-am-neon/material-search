@@ -24,6 +24,7 @@ GEMINI_API_KEY=
 ```
 
 Apply the Supabase migration in `../supabase/migrations/0001_catalog_vector_enrichment.sql`.
+See `../infra/README.md` for infrastructure-as-code scripts and provider setup.
 
 ## Production
 

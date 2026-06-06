@@ -1,0 +1,47 @@
+name: Validate Infra
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/validate-infra.yml"
+      - "render.yaml"
+      - "supabase/**"
+      - "scripts/infra/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-blueprint:
+    runs-on: ubuntu-latest
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      RENDER_OWNER_ID: ${{ vars.RENDER_OWNER_ID }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Render Blueprint
+        run: |
+          if [ -z "$RENDER_API_KEY" ] || [ -z "$RENDER_OWNER_ID" ]; then
+            echo "Skipping Render validation: RENDER_API_KEY secret or RENDER_OWNER_ID variable is missing."
+            exit 0
+          fi
+          scripts/infra/validate-render-blueprint.sh
+
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required infra files
+        run: |
+          test -f render.yaml
+          test -f supabase/config.toml
+          test -f supabase/migrations/0001_catalog_vector_enrichment.sql
+          test -x scripts/infra/check-supabase-prod.sh
+          test -x scripts/infra/sync-github-secrets.sh
+          test -x scripts/infra/validate-render-blueprint.sh
