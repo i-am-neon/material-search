@@ -10,9 +10,6 @@ from app.model_services.planning import (
     MissingMaterialPlannerClient,
 )
 from app.model_services.segmentation import (
-    CoarseImageSegmentationClient,
-    FallbackSegmentationClient,
-    GeminiBoxSegmentationClient,
     HttpSam3Client,
     MissingSam3Client,
     Sam3Client,
@@ -29,20 +26,12 @@ def get_embedding_client() -> EmbeddingClient:
 def get_sam3_client() -> Sam3Client:
     settings = get_settings()
     if settings.sam3_service_url is None:
-        if settings.gemini_api_key:
-            return _gemini_then_coarse_segmentation_client()
         return MissingSam3Client()
-    sam3_client = HttpSam3Client(
+    return HttpSam3Client(
         str(settings.sam3_service_url),
         supabase_url=str(settings.supabase_url) if settings.supabase_url else None,
         service_role_key=settings.supabase_service_role_key,
         uploaded_image_bucket=settings.uploaded_image_bucket,
-    )
-    if not settings.gemini_api_key:
-        return sam3_client
-    return FallbackSegmentationClient(
-        primary=sam3_client,
-        fallback=_gemini_then_coarse_segmentation_client(),
     )
 
 
@@ -55,25 +44,4 @@ def get_material_planner_client() -> MaterialPlannerClient:
         supabase_url=str(settings.supabase_url) if settings.supabase_url else None,
         service_role_key=settings.supabase_service_role_key,
         uploaded_image_bucket=settings.uploaded_image_bucket,
-    )
-
-
-def _gemini_then_coarse_segmentation_client() -> Sam3Client:
-    settings = get_settings()
-    supabase_url = str(settings.supabase_url) if settings.supabase_url else None
-    coarse_client = CoarseImageSegmentationClient(
-        supabase_url=supabase_url,
-        service_role_key=settings.supabase_service_role_key,
-        uploaded_image_bucket=settings.uploaded_image_bucket,
-    )
-    if not settings.gemini_api_key:
-        return coarse_client
-    return FallbackSegmentationClient(
-        primary=GeminiBoxSegmentationClient(
-            api_key=settings.gemini_api_key,
-            supabase_url=supabase_url,
-            service_role_key=settings.supabase_service_role_key,
-            uploaded_image_bucket=settings.uploaded_image_bucket,
-        ),
-        fallback=coarse_client,
     )
