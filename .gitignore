@@ -23,4 +23,3 @@ storybook-static/
 .env
 .env.*
 !.env.example
-.superpowers/
