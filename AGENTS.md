@@ -30,6 +30,10 @@ Build incrementally from the target architecture, starting with project scaffold
 - Start with a few hand-authored evals later; future product signals should create eval candidates, not automatic ground truth.
 - For demo simplicity, development and production share the same real service keys and infrastructure values. Do not add fake, deterministic, stubbed, or local-only model/data paths for dev convenience unless the user explicitly asks for a test-only harness. Catalog vector creation and similar workflows should use the real production model services and persisted production-style data paths.
 
+## Frontend UI Guidance
+
+- Whenever updating the UI, treat Storybook as a source of truth for the intended component states and user flows. Add or update stories alongside UI changes so the workbench, region review, matching, failure, and cart states remain easy to inspect independently of the app route.
+
 ## Git Ownership
 
 - The agent should manage git end to end for repo work: inspect status, create branches when appropriate, stage intentional changes, commit with clear messages, and prepare pushes/PRs when the user asks for publication.

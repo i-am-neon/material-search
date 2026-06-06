@@ -12,6 +12,8 @@ __pycache__/
 # Frontend
 node_modules/
 dist/
+storybook-static/
+.playwright-cli/
 *.tsbuildinfo
 
 # Codex local artifacts
