@@ -19,6 +19,7 @@ IPv6-only and is less reliable from local machines and CI:
 ```dotenv
 DATABASE_URL=postgresql://postgres.project-ref:password@aws-0-region.pooler.supabase.com:6543/postgres
 REDIS_URL=redis://default:password@host:6379
+CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:6006,http://localhost:6006,https://i-am-neon.github.io
 EMBEDDING_SERVICE_URL=https://modal-embedding-service.example.com
 SAM3_SERVICE_URL=https://modal-sam3-service.example.com
 EMBEDDING_MODEL_ID=google/siglip2-so400m-patch14-384
@@ -179,11 +180,15 @@ repository secret.
 
 ## Segment-to-catalog flow
 
-`POST /search/segment-matches` takes an uploaded image object key or direct image
-URL plus a material prompt. The API asks SAM3 for regions, crops each returned
-region, uploads the crop to the generated-artifacts bucket, signs the crop URL,
-embeds that crop with SigLIP, stores run/region/match rows in Postgres, and
-returns ranked catalog matches from pgvector.
+`POST /search/uploads` accepts a multipart `image` file, validates it as JPEG,
+PNG, or WebP, and stores it in the `uploaded-images` bucket. The response
+contains the `image_object_key` to pass into `POST /search/segment-matches`.
+
+`POST /search/segment-matches` takes an uploaded image object key or direct
+image URL plus a material prompt. The API asks SAM3 for regions, crops each
+returned region, uploads the crop to the generated-artifacts bucket, signs the
+crop URL, embeds that crop with SigLIP, stores run/region/match rows in
+Postgres, and returns ranked catalog matches from pgvector.
 
 ## One-time starter catalog load
 

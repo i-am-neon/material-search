@@ -75,6 +75,12 @@ class SegmentMatchResponse(BaseModel):
     regions: list[SegmentRegionMatchSet]
 
 
+class UploadImageResponse(BaseModel):
+    image_object_key: str
+    content_type: str
+    size_bytes: int
+
+
 SearchRunStatus = Literal["running", "completed", "failed"]
 SearchRegionStatus = Literal["matched", "failed"]
 

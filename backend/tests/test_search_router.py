@@ -17,6 +17,7 @@ from app.search.schemas import (
     MaterialSearchRun,
     SegmentMatchRequest,
 )
+from app.search.uploads import UploadedImage, get_uploaded_image_store
 
 
 class FakeSam3Client:
@@ -183,6 +184,27 @@ class FakeSearchRunRepository:
         ]
 
 
+class FakeUploadedImageStore:
+    def __init__(self):
+        self.calls: list[dict] = []
+
+    def upload_image(
+        self, *, filename: str, content: bytes, content_type: str | None
+    ) -> UploadedImage:
+        self.calls.append(
+            {
+                "filename": filename,
+                "content": content,
+                "content_type": content_type,
+            }
+        )
+        return UploadedImage(
+            object_key="uploads/run/reference.jpg",
+            content_type=content_type or "image/jpeg",
+            size_bytes=len(content),
+        )
+
+
 def test_segment_matches_endpoint_returns_region_catalog_matches():
     app = create_app()
     app.dependency_overrides[get_catalog_repository] = lambda: FakeCatalogRepository()
@@ -214,6 +236,44 @@ def test_segment_matches_endpoint_returns_region_catalog_matches():
     )
     assert payload["regions"][0]["matches"][0]["rank"] == 1
     assert payload["regions"][0]["matches"][0]["match"]["item"]["name"] == "Warm Gray Boucle"
+
+
+def test_upload_search_image_returns_uploaded_object_key():
+    app = create_app()
+    store = FakeUploadedImageStore()
+    app.dependency_overrides[get_uploaded_image_store] = lambda: store
+
+    response = TestClient(app).post(
+        "/search/uploads",
+        files={"image": ("room.jpg", b"image-bytes", "image/jpeg")},
+    )
+
+    assert response.status_code == 201
+    assert response.json() == {
+        "image_object_key": "uploads/run/reference.jpg",
+        "content_type": "image/jpeg",
+        "size_bytes": 11,
+    }
+    assert store.calls == [
+        {
+            "filename": "room.jpg",
+            "content": b"image-bytes",
+            "content_type": "image/jpeg",
+        }
+    ]
+
+
+def test_upload_search_image_rejects_empty_upload():
+    app = create_app()
+    app.dependency_overrides[get_uploaded_image_store] = lambda: FakeUploadedImageStore()
+
+    response = TestClient(app).post(
+        "/search/uploads",
+        files={"image": ("room.jpg", b"", "image/jpeg")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Uploaded image is empty"
 
 
 def make_item() -> CatalogItem:

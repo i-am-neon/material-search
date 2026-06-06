@@ -16,7 +16,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "The primary material search workbench: image-centered region review, run state, catalog matches, and sample-cart actions.",
+          "The primary material search workbench: image upload, run state, region review, catalog matches, and sample-cart actions.",
       },
     },
   },

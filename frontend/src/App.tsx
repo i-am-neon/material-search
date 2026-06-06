@@ -6,7 +6,7 @@ export function App() {
   return (
     <HashRouter>
       <Routes>
-        <Route path="/" element={<SearchWorkbench />} />
+        <Route path="/" element={<SearchWorkbench initialScenario="empty" />} />
         <Route path="/catalog" element={<CatalogPage />} />
       </Routes>
     </HashRouter>

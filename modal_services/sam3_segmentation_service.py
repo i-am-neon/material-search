@@ -15,6 +15,8 @@ image = (
         "fastapi[standard]==0.124.4",
         "httpx==0.28.1",
         "pillow==12.0.0",
+        "psutil==7.2.0",
+        "pycocotools==2.0.10",
         "setuptools<81",
         "torch==2.10.0",
         "torchvision",
@@ -101,7 +103,7 @@ def clamp_box(box: list[float], width: int, height: int) -> list[float]:
 
 @app.function(
     image=image,
-    gpu="T4",
+    gpu="A10G",
     timeout=300,
     scaledown_window=300,
     secrets=[
@@ -129,8 +131,17 @@ def fastapi_app():
         include_masks: bool = False
 
     @api.get("/healthz")
-    def healthcheck() -> dict[str, str]:
-        return {"status": "ok", "model_id": MODEL_ID}
+    def healthcheck() -> dict[str, str | bool | list[int] | None]:
+        cuda_available = torch.cuda.is_available()
+        return {
+            "status": "ok",
+            "model_id": MODEL_ID,
+            "cuda_available": cuda_available,
+            "cuda_device": torch.cuda.get_device_name(0) if cuda_available else None,
+            "cuda_capability": list(torch.cuda.get_device_capability(0))
+            if cuda_available
+            else None,
+        }
 
     @api.post("/segment-image")
     def segment_image(request: SegmentImageRequest) -> dict:
@@ -143,8 +154,13 @@ def fastapi_app():
                 device=device,
                 confidence_threshold=request.confidence_threshold,
             )
-            state = processor.set_image(pil_image)
-            output = processor.set_text_prompt(prompt=request.prompt, state=state)
+            if device == "cuda":
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    state = processor.set_image(pil_image)
+                    output = processor.set_text_prompt(prompt=request.prompt, state=state)
+            else:
+                state = processor.set_image(pil_image)
+                output = processor.set_text_prompt(prompt=request.prompt, state=state)
 
             scores = output["scores"].detach().cpu().float()
             boxes = output["boxes"].detach().cpu().float()

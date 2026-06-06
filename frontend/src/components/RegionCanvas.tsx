@@ -6,19 +6,36 @@ type RegionCanvasProps = {
   regions: MaterialRegion[];
   selectedRegionId: string;
   scenario: RunScenario;
+  imageSrc?: string;
+  imageTitle?: string;
+  imageAlt?: string;
+  imageWidth?: number;
+  imageHeight?: number;
   onSelectRegion: (regionId: string) => void;
 };
 
-export function RegionCanvas({ regions, selectedRegionId, scenario, onSelectRegion }: RegionCanvasProps) {
+export function RegionCanvas({
+  regions,
+  selectedRegionId,
+  scenario,
+  imageSrc,
+  imageTitle = "Hospitality lounge sample",
+  imageAlt = "Reference image for material search",
+  imageWidth,
+  imageHeight,
+  onSelectRegion,
+}: RegionCanvasProps) {
   const showRegions = scenario !== "empty" && scenario !== "planning" && scenario !== "failed";
   const includedRegions = regions.filter((region) => region.included);
+  const canvasStyle =
+    imageWidth && imageHeight ? { aspectRatio: `${imageWidth} / ${imageHeight}` } : undefined;
 
   return (
     <section className="image-panel" aria-label="Detected material regions">
       <div className="image-toolbar">
         <div>
           <p className="eyebrow">Reference Image</p>
-          <h2>Hospitality lounge sample</h2>
+          <h2>{imageTitle}</h2>
         </div>
         <div className="status-pill">
           <Sparkles size={16} />
@@ -26,8 +43,8 @@ export function RegionCanvas({ regions, selectedRegionId, scenario, onSelectRegi
         </div>
       </div>
 
-      <div className={`image-canvas ${showRegions ? "has-regions" : ""}`}>
-        <img src={demoRoom} alt="Contemporary lounge with multiple material surfaces" />
+      <div className={`image-canvas ${showRegions ? "has-regions" : ""}`} style={canvasStyle}>
+        <img src={imageSrc ?? demoRoom} alt={imageAlt} />
         {scenario === "planning" ? (
           <div className="canvas-overlay">
             <span>Reading surfaces, color, and material cues</span>

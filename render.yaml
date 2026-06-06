@@ -17,9 +17,19 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: https://i-am-neon.github.io
       - key: EMBEDDING_MODEL_ID
         value: google/siglip2-so400m-patch14-384
       - key: EMBEDDING_DIMENSIONS
         value: "1152"
       - key: CATALOG_IMAGE_BUCKET
         value: catalog-images
+      - key: UPLOADED_IMAGE_BUCKET
+        value: uploaded-images
+      - key: GENERATED_ARTIFACT_BUCKET
+        value: generated-artifacts

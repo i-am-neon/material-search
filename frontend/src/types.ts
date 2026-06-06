@@ -24,6 +24,7 @@ export type MaterialRegion = {
   note: string;
   searchIntent: string;
   included: boolean;
+  score?: number;
 };
 
 export type CatalogMetadata = {
@@ -37,6 +38,7 @@ export type CatalogMetadata = {
 };
 
 export type CatalogSeedItem = {
+  id?: string;
   manufacturer: string;
   name: string;
   material_family: string | null;

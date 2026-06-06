@@ -22,7 +22,8 @@ body {
 }
 
 button,
-textarea {
+textarea,
+input {
   font: inherit;
 }
 
@@ -224,9 +225,118 @@ h3 {
 }
 
 .upload-button {
+  position: relative;
   border: 1px dashed #8da89c;
   color: #174f43;
   background: #edf4ef;
+  cursor: pointer;
+  text-align: center;
+}
+
+.upload-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.upload-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(27, 31, 28, 0.48);
+}
+
+.image-picker-modal {
+  width: min(520px, 100%);
+  display: grid;
+  gap: 14px;
+  border: 1px solid #d8d5ca;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fffdf8;
+  box-shadow: 0 24px 80px rgba(24, 26, 22, 0.24);
+}
+
+.modal-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sample-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.sample-option {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d8d5ca;
+  border-radius: 8px;
+  padding: 8px;
+  color: #26312b;
+  background: #ffffff;
+  text-align: left;
+}
+
+.sample-option:hover,
+.own-upload-option:hover {
+  border-color: #9fb7ac;
+  background: #edf5f1;
+}
+
+.sample-option img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.sample-option span {
+  overflow-wrap: anywhere;
+  font-size: 0.86rem;
+  font-weight: 780;
+  line-height: 1.2;
+}
+
+.own-upload-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 44px;
+  border: 1px dashed #8da89c;
+  border-radius: 8px;
+  color: #174f43;
+  background: #edf4ef;
+  font-weight: 780;
+  cursor: pointer;
+}
+
+.own-upload-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .field-label {
@@ -284,6 +394,31 @@ textarea {
 .primary-action {
   color: #ffffff;
   background: #174f43;
+}
+
+.primary-action:disabled {
+  color: #78817b;
+  background: #e1e0d8;
+}
+
+.form-error {
+  border: 1px solid #e2a656;
+  border-radius: 8px;
+  padding: 10px;
+  color: #704026;
+  background: #fff6e8;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.spin-icon {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .run-panel,

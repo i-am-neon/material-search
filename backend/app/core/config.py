@@ -15,6 +15,16 @@ class Settings(BaseSettings):
     environment: str = "local"
     database_url: str = Field(default="", validation_alias="DATABASE_URL")
     redis_url: str = Field(default="redis://localhost:6379/0", validation_alias="REDIS_URL")
+    cors_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://127.0.0.1:5173",
+            "http://localhost:5173",
+            "http://127.0.0.1:6006",
+            "http://localhost:6006",
+            "https://i-am-neon.github.io",
+        ],
+        validation_alias="CORS_ORIGINS",
+    )
 
     embedding_service_url: AnyHttpUrl | None = Field(
         default=None, validation_alias="EMBEDDING_SERVICE_URL"
@@ -54,6 +64,15 @@ class Settings(BaseSettings):
     def empty_redis_uses_local_default(cls, value: Any) -> Any:
         if value == "":
             return "redis://localhost:6379/0"
+        return value
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: Any) -> Any:
+        if value is None or value == "":
+            return []
+        if isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
 

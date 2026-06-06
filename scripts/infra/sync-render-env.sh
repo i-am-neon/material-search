@@ -85,6 +85,11 @@ set_render_env DATABASE_URL
 set_render_env EMBEDDING_SERVICE_URL
 set_render_env SAM3_SERVICE_URL
 set_render_env GEMINI_API_KEY
+set_render_env SUPABASE_URL
+set_render_env SUPABASE_SERVICE_ROLE_KEY
+set_render_env CORS_ORIGINS
 set_render_env EMBEDDING_MODEL_ID
 set_render_env EMBEDDING_DIMENSIONS
 set_render_env CATALOG_IMAGE_BUCKET
+set_render_env UPLOADED_IMAGE_BUCKET
+set_render_env GENERATED_ARTIFACT_BUCKET

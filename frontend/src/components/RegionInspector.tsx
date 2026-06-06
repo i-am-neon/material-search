@@ -48,14 +48,18 @@ export function RegionInspector({ region, matches, cartIds, onToggleCart }: Regi
         </div>
 
         <div className="match-list">
-          {matches.map((match) => (
-            <ProductMatchCard
-              key={match.id}
-              match={match}
-              inCart={cartIds.includes(match.id)}
-              onToggleCart={onToggleCart}
-            />
-          ))}
+          {matches.length ? (
+            matches.map((match) => (
+              <ProductMatchCard
+                key={match.id}
+                match={match}
+                inCart={cartIds.includes(match.id)}
+                onToggleCart={onToggleCart}
+              />
+            ))
+          ) : (
+            <p className="muted-copy">Run a search to populate catalog matches for this region.</p>
+          )}
         </div>
       </section>
 
