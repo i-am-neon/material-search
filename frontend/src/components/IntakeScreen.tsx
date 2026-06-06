@@ -86,6 +86,7 @@ export function IntakeScreen({
 
         <div className="dz-prompt">
           <input
+            aria-label="Search intent"
             value={prompt}
             placeholder="What are you sourcing?  e.g. a warm matte floor tile"
             onChange={(e) => onPromptChange(e.currentTarget.value)}
