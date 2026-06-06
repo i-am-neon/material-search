@@ -1,4 +1,9 @@
+import base64
+import json
+import re
 from abc import ABC, abstractmethod
+from io import BytesIO
+from pathlib import PurePath
 from typing import Literal
 from urllib.parse import quote
 
@@ -6,6 +11,8 @@ import httpx
 from pydantic import BaseModel, Field
 
 SAM3_MODEL_ID = "facebook/sam3"
+GEMINI_BOX_SEGMENTATION_MODEL_ID = "gemini-3.5-flash-box-segmentation"
+GEMINI_GENERATE_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
 
 class SegmentationMask(BaseModel):
@@ -133,6 +140,179 @@ class HttpSam3Client(Sam3Client):
         }
 
 
+class FallbackSegmentationClient(Sam3Client):
+    def __init__(self, *, primary: Sam3Client, fallback: Sam3Client):
+        self.primary = primary
+        self.fallback = fallback
+
+    def segment_image(
+        self,
+        *,
+        prompt: str,
+        image_object_key: str | None = None,
+        image_url: str | None = None,
+        confidence_threshold: float = 0.5,
+        max_regions: int = 20,
+        include_masks: bool = False,
+    ) -> SegmentationResult:
+        try:
+            return self.primary.segment_image(
+                prompt=prompt,
+                image_object_key=image_object_key,
+                image_url=image_url,
+                confidence_threshold=confidence_threshold,
+                max_regions=max_regions,
+                include_masks=include_masks,
+            )
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code != 429:
+                raise
+
+        return self.fallback.segment_image(
+            prompt=prompt,
+            image_object_key=image_object_key,
+            image_url=image_url,
+            confidence_threshold=confidence_threshold,
+            max_regions=max_regions,
+            include_masks=False,
+        )
+
+
+class GeminiBoxSegmentationClient(Sam3Client):
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model_id: str = "gemini-3.5-flash",
+        supabase_url: str | None = None,
+        service_role_key: str | None = None,
+        uploaded_image_bucket: str = "uploaded-images",
+        timeout_seconds: float = 120.0,
+    ):
+        self.api_key = api_key
+        self.model_id = model_id
+        self.supabase_url = supabase_url.rstrip("/") if supabase_url else None
+        self.service_role_key = service_role_key
+        self.uploaded_image_bucket = uploaded_image_bucket
+        self.timeout_seconds = timeout_seconds
+
+    def segment_image(
+        self,
+        *,
+        prompt: str,
+        image_object_key: str | None = None,
+        image_url: str | None = None,
+        confidence_threshold: float = 0.5,
+        max_regions: int = 20,
+        include_masks: bool = False,
+    ) -> SegmentationResult:
+        image_bytes, mime_type, width, height = self._load_image(
+            image_object_key=image_object_key,
+            image_url=image_url,
+        )
+        response = httpx.post(
+            GEMINI_GENERATE_URL.format(model=self.model_id),
+            params={"key": self.api_key},
+            json={
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [
+                            {
+                                "text": _box_segmentation_prompt(
+                                    prompt=prompt,
+                                    image_width=width,
+                                    image_height=height,
+                                    confidence_threshold=confidence_threshold,
+                                    max_regions=max_regions,
+                                )
+                            },
+                            {
+                                "inline_data": {
+                                    "mime_type": mime_type,
+                                    "data": base64.b64encode(image_bytes).decode("ascii"),
+                                }
+                            },
+                        ],
+                    }
+                ],
+                "generationConfig": {
+                    "temperature": 0.1,
+                    "response_mime_type": "application/json",
+                },
+            },
+            timeout=self.timeout_seconds,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        text = _first_text_part(payload)
+        data = json.loads(_strip_json_fence(text))
+        regions = [
+            _gemini_region_to_segmentation_region(
+                region,
+                prompt=prompt,
+                width=width,
+                height=height,
+                index=index,
+            )
+            for index, region in enumerate(data.get("regions") or [])
+        ][:max_regions]
+        return SegmentationResult(
+            model_id=GEMINI_BOX_SEGMENTATION_MODEL_ID,
+            image_width=width,
+            image_height=height,
+            prompt=prompt,
+            regions=regions,
+        )
+
+    def _load_image(
+        self,
+        *,
+        image_object_key: str | None,
+        image_url: str | None,
+    ) -> tuple[bytes, str, int, int]:
+        if image_url:
+            response = httpx.get(image_url, timeout=30.0, follow_redirects=True)
+        elif image_object_key:
+            if self.supabase_url is None or not self.service_role_key:
+                raise RuntimeError(
+                    "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required "
+                    "to segment uploaded image object keys with Gemini fallback"
+                )
+            response = httpx.get(
+                self._object_url(image_object_key),
+                headers=self._auth_headers(),
+                timeout=30.0,
+                follow_redirects=True,
+            )
+        else:
+            raise ValueError("Either image_object_key or image_url is required")
+
+        response.raise_for_status()
+        from PIL import Image
+
+        content_type = response.headers.get("content-type", "").split(";", maxsplit=1)[0]
+        image_bytes = response.content
+        image = Image.open(BytesIO(image_bytes))
+        width, height = image.size
+        return (
+            image_bytes,
+            _image_mime_type(content_type, image_object_key, image_url),
+            width,
+            height,
+        )
+
+    def _object_url(self, object_key: str) -> str:
+        quoted_key = quote(object_key.lstrip("/"), safe="/")
+        return f"{self.supabase_url}/storage/v1/object/{self.uploaded_image_bucket}/{quoted_key}"
+
+    def _auth_headers(self) -> dict[str, str]:
+        return {
+            "apikey": self.service_role_key or "",
+            "authorization": f"Bearer {self.service_role_key}",
+        }
+
+
 class MissingSam3Client(Sam3Client):
     def segment_image(
         self,
@@ -149,3 +329,92 @@ class MissingSam3Client(Sam3Client):
 
 def _quote_key(object_key: str) -> str:
     return quote(object_key.lstrip("/"), safe="/")
+
+
+def _box_segmentation_prompt(
+    *,
+    prompt: str,
+    image_width: int,
+    image_height: int,
+    confidence_threshold: float,
+    max_regions: int,
+) -> str:
+    return f"""
+You are segmenting material regions in an image for catalog matching.
+Return JSON only. Find up to {max_regions} visible material regions matching:
+{prompt}
+
+Image size: {image_width} x {image_height} pixels.
+Use pixel coordinates in the original image. Return tight bounding boxes around
+physical material surfaces, not decorative labels or furniture outlines unless
+the material surface itself is requested. Ignore candidates below confidence
+{confidence_threshold}.
+
+JSON shape:
+{{
+  "regions": [
+    {{
+      "id": "gemini_region_0",
+      "score": 0.0,
+      "box_xyxy": [x0, y0, x1, y1]
+    }}
+  ]
+}}
+""".strip()
+
+
+def _first_text_part(payload: dict) -> str:
+    candidates = payload.get("candidates") or []
+    for candidate in candidates:
+        content = candidate.get("content") or {}
+        for part in content.get("parts") or []:
+            text = part.get("text")
+            if isinstance(text, str) and text.strip():
+                return text
+    raise RuntimeError("Gemini did not return segmentation JSON")
+
+
+def _strip_json_fence(text: str) -> str:
+    stripped = text.strip()
+    fence_match = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", stripped, flags=re.DOTALL)
+    if fence_match:
+        stripped = fence_match.group(1).strip()
+    json.loads(stripped)
+    return stripped
+
+
+def _gemini_region_to_segmentation_region(
+    region: dict,
+    *,
+    prompt: str,
+    width: int,
+    height: int,
+    index: int,
+) -> SegmentationRegion:
+    box = region.get("box_xyxy") or []
+    if len(box) != 4:
+        raise ValueError(f"Gemini region {index} did not include four box coordinates")
+    x0, y0, x1, y1 = [float(value) for value in box]
+    return SegmentationRegion(
+        id=str(region.get("id") or f"gemini_region_{index}"),
+        prompt=prompt,
+        score=max(0.0, min(1.0, float(region.get("score") or 0.5))),
+        box_xyxy=[
+            max(0.0, min(float(width), x0)),
+            max(0.0, min(float(height), y0)),
+            max(0.0, min(float(width), x1)),
+            max(0.0, min(float(height), y1)),
+        ],
+    )
+
+
+def _image_mime_type(content_type: str, image_object_key: str | None, image_url: str | None) -> str:
+    if content_type in {"image/jpeg", "image/png", "image/webp"}:
+        return content_type
+    suffix = PurePath(image_object_key or image_url or "").suffix.lower()
+    return {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+    }.get(suffix, "image/jpeg")

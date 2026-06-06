@@ -1,6 +1,12 @@
+import httpx
 import pytest
 
-from app.model_services.segmentation import HttpSam3Client, SegmentationRegion
+from app.model_services.segmentation import (
+    FallbackSegmentationClient,
+    GeminiBoxSegmentationClient,
+    HttpSam3Client,
+    SegmentationRegion,
+)
 
 
 def test_segmentation_region_requires_box_coordinates():
@@ -184,3 +190,111 @@ def test_http_sam3_client_rejects_too_many_regions(monkeypatch):
             image_url="https://example.com/image.jpg",
             max_regions=1,
         )
+
+
+def test_gemini_box_segmentation_client_returns_regions(monkeypatch):
+    calls = []
+
+    class FakeImageResponse:
+        content = _png_bytes(width=640, height=480)
+        headers = {"content-type": "image/png"}
+
+        def raise_for_status(self):
+            return None
+
+    class FakeGeminiResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "candidates": [
+                    {
+                        "content": {
+                            "parts": [
+                                {
+                                    "text": (
+                                        '{"regions":[{"id":"fabric","score":0.82,'
+                                        '"box_xyxy":[10,20,300,220]}]}'
+                                    )
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+
+    def fake_get(url, **kwargs):
+        calls.append(("get", url, kwargs))
+        return FakeImageResponse()
+
+    def fake_post(url, **kwargs):
+        calls.append(("post", url, kwargs))
+        return FakeGeminiResponse()
+
+    monkeypatch.setattr("app.model_services.segmentation.httpx.get", fake_get)
+    monkeypatch.setattr("app.model_services.segmentation.httpx.post", fake_post)
+
+    result = GeminiBoxSegmentationClient(api_key="gemini-key").segment_image(
+        prompt="green upholstery",
+        image_url="https://example.com/room.png",
+        confidence_threshold=0.4,
+        max_regions=2,
+    )
+
+    assert calls[0][0] == "get"
+    assert calls[1][0] == "post"
+    assert result.model_id == "gemini-3.5-flash-box-segmentation"
+    assert result.image_width == 640
+    assert result.image_height == 480
+    assert result.regions[0].id == "fabric"
+    assert result.regions[0].box_xyxy == [10.0, 20.0, 300.0, 220.0]
+
+
+def test_fallback_segmentation_client_uses_gemini_on_sam3_429():
+    class RateLimitedSam3Client:
+        def segment_image(self, **kwargs):
+            request = httpx.Request("POST", "https://sam3.example.com/segment-image")
+            response = httpx.Response(
+                429,
+                request=request,
+                text="modal-http: Webhook failed: workspace billing cycle spend limit reached",
+            )
+            raise httpx.HTTPStatusError(
+                "Client error '429 Too Many Requests'",
+                request=request,
+                response=response,
+            )
+
+    class FallbackClient:
+        def segment_image(self, **kwargs):
+            return {
+                "prompt": kwargs["prompt"],
+                "image_object_key": kwargs["image_object_key"],
+                "max_regions": kwargs["max_regions"],
+            }
+
+    result = FallbackSegmentationClient(
+        primary=RateLimitedSam3Client(),
+        fallback=FallbackClient(),
+    ).segment_image(
+        prompt="green upholstery",
+        image_object_key="uploads/run/ref.png",
+        max_regions=3,
+    )
+
+    assert result == {
+        "prompt": "green upholstery",
+        "image_object_key": "uploads/run/ref.png",
+        "max_regions": 3,
+    }
+
+
+def _png_bytes(*, width: int, height: int) -> bytes:
+    from io import BytesIO
+
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (width, height), color=(255, 255, 255)).save(buffer, format="PNG")
+    return buffer.getvalue()
