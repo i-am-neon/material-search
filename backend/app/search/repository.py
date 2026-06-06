@@ -20,6 +20,7 @@ from app.search.schemas import (
     SegmentMatchRequest,
     SegmentMatchResponse,
     SegmentRegionMatchSet,
+    build_result_region_id,
 )
 
 
@@ -238,6 +239,19 @@ class PostgresSearchRunRepository(SearchRunRepository):
             values (
               %s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s, %s, 'matched'
             )
+            on conflict (run_id, target_id, source_region_id) do update
+            set target_label = excluded.target_label,
+                prompt = excluded.prompt,
+                score = excluded.score,
+                box_xyxy = excluded.box_xyxy,
+                mask = excluded.mask,
+                crop_object_key = excluded.crop_object_key,
+                crop_width = excluded.crop_width,
+                crop_height = excluded.crop_height,
+                embedding_model_id = excluded.embedding_model_id,
+                embedding_dimensions = excluded.embedding_dimensions,
+                status = excluded.status,
+                updated_at = now()
             returning *
             """,
             (
@@ -378,7 +392,12 @@ class PostgresSearchRunRepository(SearchRunRepository):
             (row["id"],),
         ).fetchall()
         source_region_id = row["source_region_id"]
+        result_region_id = build_result_region_id(
+            target_id=row["target_id"],
+            source_region_id=source_region_id,
+        )
         return SegmentRegionMatchSet(
+            result_region_id=result_region_id,
             region=SegmentationRegion(
                 id=source_region_id,
                 prompt=row["prompt"],
@@ -396,7 +415,7 @@ class PostgresSearchRunRepository(SearchRunRepository):
             dimensions=row["embedding_dimensions"],
             matches=[
                 RankedRegionMatch(
-                    region_id=source_region_id,
+                    region_id=result_region_id,
                     rank=match_row["rank"],
                     match=CatalogMatch(
                         item=CatalogItem.model_validate(

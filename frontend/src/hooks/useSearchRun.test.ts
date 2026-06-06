@@ -19,7 +19,8 @@ const result_: SegmentMatchResponse = {
   image_height: 800,
   regions: [
     {
-      region: { id: "r-floor", prompt: "floor", score: 0.96, box_xyxy: [0, 600, 1000, 800] },
+      result_region_id: "r-floor",
+      region: { id: "sam-1", prompt: "floor", score: 0.96, box_xyxy: [0, 600, 1000, 800] },
       target_id: "t1",
       target_label: "Floor",
       crop_object_key: "crop1",
@@ -34,7 +35,8 @@ const result_: SegmentMatchResponse = {
       ],
     },
     {
-      region: { id: "r-wall", prompt: "wall", score: 0.82, box_xyxy: [0, 0, 600, 500] },
+      result_region_id: "r-wall",
+      region: { id: "sam-2", prompt: "wall", score: 0.82, box_xyxy: [0, 0, 600, 500] },
       target_id: "t2",
       target_label: "Wall",
       crop_object_key: "crop2",

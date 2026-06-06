@@ -17,6 +17,7 @@ from app.search.schemas import (
     SegmentMatchRequest,
     SegmentMatchResponse,
     SegmentRegionMatchSet,
+    build_result_region_id,
 )
 
 
@@ -107,6 +108,10 @@ class MaterialSearchGraph:
         request = state["request"]
         plan = state["plan"]
 
+        if not plan.is_material_search:
+            reason = plan.unsupported_reason or "The request is not a material search"
+            raise RuntimeError(f"Material search planner declined request: {reason}")
+
         segmentations: list[PlannedSegmentation] = []
         remaining_regions = request.max_regions
         image_width: int | None = None
@@ -146,17 +151,22 @@ class MaterialSearchGraph:
             target = planned.target
             segmentation = planned.segmentation
             for region in segmentation.regions:
+                result_region_id = build_result_region_id(
+                    target_id=target.target_id,
+                    source_region_id=region.id,
+                )
+                artifact_region = region.model_copy(update={"id": result_region_id})
                 artifact = self.artifact_store.create_region_crop(
                     run_id=str(request.run_id),
                     source_image_object_key=request.image_object_key,
                     source_image_url=str(request.image_url) if request.image_url else None,
-                    region=region,
+                    region=artifact_region,
                     image_width=segmentation.image_width,
                     image_height=segmentation.image_height,
                 )
                 match_set = self.region_matcher.match_region(
                     RegionMatchRequest(
-                        region_id=region.id,
+                        region_id=result_region_id,
                         crop_object_key=artifact.object_key,
                         crop_url=artifact.signed_url,
                         model_id=request.model_id,
@@ -182,6 +192,7 @@ class MaterialSearchGraph:
 
                 region_results.append(
                     SegmentRegionMatchSet(
+                        result_region_id=result_region_id,
                         region=region,
                         target_id=target.target_id,
                         target_label=target.label,

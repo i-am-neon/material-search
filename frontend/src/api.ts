@@ -64,6 +64,7 @@ export type MaterialSearchPlanResponse = {
 };
 
 export type SegmentRegionMatchSetResponse = {
+  result_region_id: string;
   region: SegmentationRegionResponse;
   target_id: string | null;
   target_label: string | null;

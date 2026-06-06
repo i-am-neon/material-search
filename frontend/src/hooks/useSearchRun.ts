@@ -153,7 +153,7 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
       await ensureMinDuration(startedAt, minAnalyzeMs);
       if (seq !== runSequenceRef.current) return;
       setRunResult(result);
-      setSelectedRegionId(result.regions[0]?.region.id ?? demoRegions[0].id);
+      setSelectedRegionId(result.regions[0]?.result_region_id ?? demoRegions[0].id);
       setScenario("complete");
     } catch (e) {
       if (seq !== runSequenceRef.current) return;
@@ -224,7 +224,7 @@ function mapRunRegions(result: SegmentMatchResponse): MaterialRegion[] {
     const { region } = matchSet;
     const [x0, y0, x1, y1] = region.box_xyxy;
     return {
-      id: region.id,
+      id: matchSet.result_region_id,
       label: matchSet.target_label ?? `Region ${index + 1}`,
       material: matchSet.target_label ?? region.prompt,
       confidence: confidenceLabel(region.score),
@@ -243,7 +243,7 @@ function mapRunRegions(result: SegmentMatchResponse): MaterialRegion[] {
 }
 
 function mapRunMatches(result: SegmentMatchResponse, regionId: string): ProductMatch[] {
-  const matchSet = result.regions.find((c) => c.region.id === regionId);
+  const matchSet = result.regions.find((c) => c.result_region_id === regionId);
   if (!matchSet) return [];
   return matchSet.matches.map((m) => ({
     id: `${regionId}-${m.match.item.id}`,

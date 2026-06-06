@@ -57,6 +57,24 @@ def test_crop_region_image_rejects_empty_box():
         crop_region_image(image=image, region=region, image_width=4, image_height=4)
 
 
+def test_crop_region_image_clamps_box_to_image_bounds():
+    image = Image.new("RGB", (4, 4), "white")
+    image.putpixel((0, 0), (255, 0, 0))
+    image.putpixel((3, 3), (0, 0, 255))
+    region = SegmentationRegion(
+        id="sam3_region_0",
+        prompt="floor",
+        score=0.9,
+        box_xyxy=[-10.0, -5.0, 10.0, 12.0],
+    )
+
+    crop = crop_region_image(image=image, region=region, image_width=4, image_height=4)
+
+    assert crop.size == (4, 4)
+    assert crop.getpixel((0, 0)) == (255, 0, 0)
+    assert crop.getpixel((3, 3)) == (0, 0, 255)
+
+
 def test_decode_uncompressed_rle_mask_rejects_wrong_pixel_count():
     mask = SegmentationMask(format="uncompressed_rle", size=[2, 2], counts=[1, 1])
 
@@ -105,3 +123,30 @@ def test_supabase_signed_url_prefixes_storage_api_path(monkeypatch):
         "https://project.supabase.co/storage/v1/object/sign/generated-artifacts/"
         "runs/run/regions/region/crop.jpg?token=redacted"
     )
+
+
+def test_supabase_signed_url_requires_storage_response_url(monkeypatch):
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {}
+
+    monkeypatch.setattr(
+        "app.search.artifacts.httpx.post",
+        lambda *args, **kwargs: FakeResponse(),
+    )
+
+    store = SupabaseRegionArtifactStore(
+        supabase_url="https://project.supabase.co",
+        service_role_key="service-key",
+        uploaded_image_bucket="uploaded-images",
+        generated_artifact_bucket="generated-artifacts",
+    )
+
+    with pytest.raises(RuntimeError, match="signed URL"):
+        store._create_signed_url(
+            bucket="generated-artifacts",
+            object_key="runs/run/regions/region/crop.jpg",
+        )

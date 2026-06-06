@@ -81,6 +81,45 @@ class FakePlannerClient:
         )
 
 
+class MultiTargetPlannerClient:
+    def plan_material_search(self, request: SegmentMatchRequest) -> MaterialSearchPlan:
+        return MaterialSearchPlan(
+            user_intent_summary="Search for upholstery and floor",
+            avoid=[],
+            targets=[
+                PlannedMaterialTarget(
+                    target_id="upholstery",
+                    label="Upholstery",
+                    sam3_prompt="upholstery",
+                    material_family_hint="textile",
+                    reason="The user asked for upholstery.",
+                    priority=1,
+                    max_regions=1,
+                ),
+                PlannedMaterialTarget(
+                    target_id="floor",
+                    label="Floor",
+                    sam3_prompt="stone floor",
+                    material_family_hint="stone",
+                    reason="The user asked for flooring.",
+                    priority=2,
+                    max_regions=1,
+                ),
+            ],
+        )
+
+
+class UnsupportedIntentPlannerClient:
+    def plan_material_search(self, request: SegmentMatchRequest) -> MaterialSearchPlan:
+        return MaterialSearchPlan(
+            user_intent_summary="The request is not material matching.",
+            is_material_search=False,
+            unsupported_reason="Lamp shape matching is not a material search.",
+            avoid=[],
+            targets=[],
+        )
+
+
 class FailingSam3Client:
     def segment_image(self, **kwargs):
         raise RuntimeError("SAM3 unavailable")
@@ -389,15 +428,15 @@ def test_segment_catalog_match_service_crops_embeds_and_matches_regions():
             "run_id": str(run_id),
             "source_image_object_key": "uploads/room.jpg",
             "source_image_url": None,
-            "region_id": "sam3_region_0",
+            "region_id": "upholstery__sam3_region_0",
             "image_width": 640,
             "image_height": 480,
         }
     ]
     assert embedding_client.calls == [
         {
-            "image_object_key": f"runs/{run_id}/regions/sam3_region_0/crop.jpg",
-            "image_url": "https://example.com/signed/sam3_region_0.jpg",
+            "image_object_key": f"runs/{run_id}/regions/upholstery__sam3_region_0/crop.jpg",
+            "image_url": "https://example.com/signed/upholstery__sam3_region_0.jpg",
             "model_id": "test-model",
             "dimensions": 3,
         }
@@ -410,7 +449,7 @@ def test_segment_catalog_match_service_crops_embeds_and_matches_regions():
             "run_id": run_id,
             "target_id": "upholstery",
             "source_region_id": "sam3_region_0",
-            "artifact_object_key": f"runs/{run_id}/regions/sam3_region_0/crop.jpg",
+            "artifact_object_key": f"runs/{run_id}/regions/upholstery__sam3_region_0/crop.jpg",
             "embedding_model_id": "test-model",
             "embedding_dimensions": 3,
         }
@@ -430,11 +469,52 @@ def test_segment_catalog_match_service_crops_embeds_and_matches_regions():
     assert response.run_id == run_id
     assert response.plan is not None
     assert response.plan.targets[0].sam3_prompt == "upholstery"
+    assert response.regions[0].result_region_id == "upholstery__sam3_region_0"
     assert response.regions[0].target_id == "upholstery"
     assert response.regions[0].region.id == "sam3_region_0"
     assert response.regions[0].crop_width == 100
+    assert response.regions[0].matches[0].region_id == "upholstery__sam3_region_0"
     assert response.regions[0].matches[0].rank == 1
     assert response.regions[0].matches[0].match.item.name == "Warm Gray Boucle"
+
+
+def test_segment_catalog_match_service_uses_target_scoped_region_ids_for_duplicate_sam3_ids():
+    artifact_store = FakeArtifactStore()
+    embedding_client = FakeEmbeddingClient()
+    response = SegmentCatalogMatchService(
+        sam3_client=FakeSam3Client(),
+        planner_client=MultiTargetPlannerClient(),
+        artifact_store=artifact_store,
+        embedding_client=embedding_client,
+        catalog_repository=FakeCatalogRepository(),
+        search_run_repository=FakeSearchRunRepository(),
+    ).segment_and_match(
+        SegmentMatchRequest(
+            run_id=uuid4(),
+            image_object_key="uploads/room.jpg",
+            prompt="upholstery and floor",
+            max_regions=2,
+            model_id="test-model",
+            dimensions=3,
+        )
+    )
+
+    assert [region.result_region_id for region in response.regions] == [
+        "upholstery__sam3_region_0",
+        "floor__sam3_region_0",
+    ]
+    assert [call["region_id"] for call in artifact_store.calls] == [
+        "upholstery__sam3_region_0",
+        "floor__sam3_region_0",
+    ]
+    assert [call["image_object_key"] for call in embedding_client.calls] == [
+        f"runs/{response.run_id}/regions/upholstery__sam3_region_0/crop.jpg",
+        f"runs/{response.run_id}/regions/floor__sam3_region_0/crop.jpg",
+    ]
+    assert [region.region.id for region in response.regions] == [
+        "sam3_region_0",
+        "sam3_region_0",
+    ]
 
 
 def test_segment_catalog_match_service_marks_run_failed_on_error():
@@ -462,6 +542,42 @@ def test_segment_catalog_match_service_marks_run_failed_on_error():
     assert search_repository.complete_run_calls == []
     assert search_repository.fail_run_calls == [
         {"run_id": run_id, "error": "SAM3 unavailable"}
+    ]
+
+
+def test_segment_catalog_match_service_declines_unsupported_planner_intent():
+    sam3_client = FakeSam3Client()
+    search_repository = FakeSearchRunRepository()
+    run_id = uuid4()
+
+    with pytest.raises(RuntimeError, match="planner declined request"):
+        SegmentCatalogMatchService(
+            sam3_client=sam3_client,
+            planner_client=UnsupportedIntentPlannerClient(),
+            artifact_store=FakeArtifactStore(),
+            embedding_client=FakeEmbeddingClient(),
+            catalog_repository=FakeCatalogRepository(),
+            search_run_repository=search_repository,
+        ).segment_and_match(
+            SegmentMatchRequest(
+                run_id=run_id,
+                image_object_key="uploads/room.jpg",
+                prompt="Match the lamp shape.",
+                model_id="test-model",
+                dimensions=3,
+            )
+        )
+
+    assert sam3_client.calls == []
+    assert search_repository.complete_run_calls == []
+    assert search_repository.fail_run_calls == [
+        {
+            "run_id": run_id,
+            "error": (
+                "Material search planner declined request: "
+                "Lamp shape matching is not a material search."
+            ),
+        }
     ]
 
 

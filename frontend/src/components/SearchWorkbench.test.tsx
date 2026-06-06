@@ -10,7 +10,7 @@ vi.mock("../api", () => ({
     run: { id: "r1", prompt: "p", source_image_object_key: "k", source_image_url: null, status: "completed", error: null, image_width: 100, image_height: 80, created_at: "", updated_at: "" },
     result: {
       run_id: "r1", prompt: "p", plan: null, image_width: 100, image_height: 80,
-      regions: [{ region: { id: "rg", prompt: "floor", score: 0.9, box_xyxy: [0, 60, 100, 80] }, target_id: "t", target_label: "Floor", crop_object_key: "c", crop_url: null, crop_width: 1, crop_height: 1, model_id: "m", dimensions: 1, matches: [{ region_id: "rg", rank: 1, match: { item: { id: "i", manufacturer: "Brand", name: "Oak", material_family: "wood", image_object_key: "i.png", image_url: null, metadata: {}, created_at: "", updated_at: "" }, model_id: "m", similarity: 0.9 } }] }],
+      regions: [{ result_region_id: "rg", region: { id: "rg", prompt: "floor", score: 0.9, box_xyxy: [0, 60, 100, 80] }, target_id: "t", target_label: "Floor", crop_object_key: "c", crop_url: null, crop_width: 1, crop_height: 1, model_id: "m", dimensions: 1, matches: [{ region_id: "rg", rank: 1, match: { item: { id: "i", manufacturer: "Brand", name: "Oak", material_family: "wood", image_object_key: "i.png", image_url: null, metadata: {}, created_at: "", updated_at: "" }, model_id: "m", similarity: 0.9 } }] }],
     },
   }),
 }));

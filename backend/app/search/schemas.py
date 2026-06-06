@@ -22,7 +22,17 @@ class PlannedMaterialTarget(BaseModel):
 class MaterialSearchPlan(BaseModel):
     user_intent_summary: str = Field(min_length=1, max_length=500)
     avoid: list[str] = Field(default_factory=list, max_length=12)
-    targets: list[PlannedMaterialTarget] = Field(min_length=1, max_length=8)
+    is_material_search: bool = True
+    unsupported_reason: str | None = Field(default=None, max_length=500)
+    targets: list[PlannedMaterialTarget] = Field(default_factory=list, max_length=8)
+
+    @model_validator(mode="after")
+    def require_targets_for_material_search(self) -> "MaterialSearchPlan":
+        if self.is_material_search and not self.targets:
+            raise ValueError("Material search plans require at least one target")
+        if not self.is_material_search and not self.unsupported_reason:
+            raise ValueError("Unsupported material search plans require unsupported_reason")
+        return self
 
 
 class RegionMatchRequest(BaseModel):
@@ -73,6 +83,7 @@ class SegmentMatchRequest(BaseModel):
 
 
 class SegmentRegionMatchSet(BaseModel):
+    result_region_id: str
     region: SegmentationRegion
     target_id: str | None = None
     target_label: str | None = None
@@ -156,3 +167,7 @@ class SearchRunAccepted(BaseModel):
 class SearchRunStatusResponse(BaseModel):
     run: MaterialSearchRun
     result: SegmentMatchResponse | None = None
+
+
+def build_result_region_id(*, target_id: str | None, source_region_id: str) -> str:
+    return f"{target_id}__{source_region_id}" if target_id else source_region_id
