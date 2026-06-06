@@ -8,12 +8,12 @@ type SurfaceSelectorProps = {
 
 export function SurfaceSelector({ surfaces, selectedRegionId, onSelect }: SurfaceSelectorProps) {
   return (
-    <div className="surfaces" role="tablist" aria-label="Detected surfaces">
+    <div className="surfaces" role="group" aria-label="Detected surfaces">
       {surfaces.map(({ region, matchCount, thumbUrl }) => (
         <button
           key={region.id}
           type="button"
-          aria-selected={region.id === selectedRegionId}
+          aria-pressed={region.id === selectedRegionId}
           className={`surf ${region.id === selectedRegionId ? "active" : ""}`}
           onClick={() => onSelect(region.id)}
         >
