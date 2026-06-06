@@ -3,6 +3,7 @@ from typing import Any
 from uuid import UUID
 
 from psycopg import Connection
+from psycopg.pq import TransactionStatus
 from psycopg.types.json import Jsonb
 
 from app.catalog.schemas import CatalogItem, CatalogMatch
@@ -191,6 +192,8 @@ class PostgresSearchRunRepository(SearchRunRepository):
         return _require_row(row, f"Material search run {run_id} does not exist")
 
     def fail_run(self, *, run_id: UUID, error: str) -> MaterialSearchRun:
+        if self.conn.info.transaction_status == TransactionStatus.INERROR:
+            self.conn.rollback()
         row = self.conn.execute(
             """
             update material_search_runs

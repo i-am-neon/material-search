@@ -60,6 +60,66 @@ def test_http_sam3_client_posts_segment_request(monkeypatch):
     assert result.regions[0].score == 0.91
 
 
+def test_http_sam3_client_signs_uploaded_object_keys(monkeypatch):
+    calls = []
+
+    class FakeResponse:
+        def __init__(self, payload):
+            self.payload = payload
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self.payload
+
+    def fake_post(url, **kwargs):
+        calls.append({"url": url, **kwargs})
+        if "/storage/v1/object/sign/" in url:
+            return FakeResponse(
+                {"signedURL": "/object/sign/uploaded-images/uploads/run/ref.png?t=1"}
+            )
+        return FakeResponse(
+            {
+                "model_id": "facebook/sam3",
+                "image_width": 640,
+                "image_height": 480,
+                "prompt": "green upholstery",
+                "regions": [
+                    {
+                        "id": "sam3_region_0",
+                        "prompt": "green upholstery",
+                        "score": 0.91,
+                        "box_xyxy": [10.0, 12.0, 100.0, 120.0],
+                    }
+                ],
+            }
+        )
+
+    monkeypatch.setattr("app.model_services.segmentation.httpx.post", fake_post)
+
+    HttpSam3Client(
+        "https://sam3.example.com",
+        supabase_url="https://project.supabase.co",
+        service_role_key="service-role",
+    ).segment_image(
+        prompt="green upholstery",
+        image_object_key="uploads/run/ref.png",
+    )
+
+    assert calls[0]["url"] == (
+        "https://project.supabase.co/storage/v1/object/sign/"
+        "uploaded-images/uploads/run/ref.png"
+    )
+    assert calls[0]["headers"]["authorization"] == "Bearer service-role"
+    assert calls[1]["url"] == "https://sam3.example.com/segment-image"
+    assert calls[1]["json"]["image_object_key"] is None
+    assert calls[1]["json"]["image_url"] == (
+        "https://project.supabase.co/storage/v1"
+        "/object/sign/uploaded-images/uploads/run/ref.png?t=1"
+    )
+
+
 def test_http_sam3_client_rejects_wrong_model(monkeypatch):
     class FakeResponse:
         def raise_for_status(self):
