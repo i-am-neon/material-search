@@ -8,6 +8,7 @@ Provider accounts, billing state, and secret values still live outside git.
 - **Supabase schema:** `supabase/migrations/*.sql`
 - **Supabase local/link config:** `supabase/config.toml`
 - **Render API service:** `render.yaml`
+- **Modal embedding service:** `modal_services/siglip_embedding_service.py`
 - **GitHub Pages UI deploy:** `.github/workflows/deploy-ui.yml`
 - **Catalog vector indexing job:** `.github/workflows/index-catalog.yml`
 - **Fly fallback API config:** `backend/fly.toml`
@@ -47,6 +48,25 @@ Current Render resources:
 - Service ID: `srv-d8i45j58nd3s73e1u29g`
 - URL: `https://material-search-api.onrender.com`
 
+## Modal Embedding Service
+
+Current Modal resources:
+
+- App: `material-search-siglip-embeddings`
+- Endpoint: `https://tommy-4187--material-search-siglip-embeddings-fastapi-app.modal.run`
+- Secret: `material-search-embedding-env`
+
+The endpoint implements:
+
+- `GET /healthz`
+- `POST /embed-image`
+
+Deploy after changing the service:
+
+```bash
+.tools/modal-venv/bin/modal deploy modal_services/siglip_embedding_service.py
+```
+
 Programmatic validation requires:
 
 - a logged-in Render CLI, or
@@ -63,6 +83,5 @@ curl -fsSL https://api.render.com/v1/owners \
 
 ## Current External Inputs
 
-- `EMBEDDING_SERVICE_URL` is still required before vector indexing can run.
 - `RENDER_API_KEY` is required only for GitHub Actions to validate Render
   resources. Local validation works with `render login`.

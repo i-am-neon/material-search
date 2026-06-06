@@ -45,6 +45,8 @@ API only if it needs to be publicly reachable. The repo includes a root
 `render.yaml` blueprint for a Render Free web service. Set the same
 `DATABASE_URL` and `EMBEDDING_SERVICE_URL` values from `backend/.env` in Render.
 Current Render API URL: `https://material-search-api.onrender.com`.
+Current Modal embedding URL:
+`https://tommy-4187--material-search-siglip-embeddings-fastapi-app.modal.run`.
 
 Catalog vector enrichment does not require a long-lived
 queue worker. Run it as a one-off command locally or through the manual

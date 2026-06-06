@@ -6,12 +6,16 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+.tools/
 *.egg-info/
 
 # Frontend
 node_modules/
 dist/
 *.tsbuildinfo
+
+# Codex local artifacts
+.codex-artifacts/
 
 # Local config
 .env
