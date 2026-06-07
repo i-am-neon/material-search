@@ -161,11 +161,13 @@ button { font-family: inherit; }
 .stage { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 24px 48px -30px rgba(0, 0, 0, 0.5); aspect-ratio: 5 / 4; background: var(--paper-2); }
 .stage img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .stage-empty { position: absolute; inset: 0; }
-.region { position: absolute; border: 2px solid rgba(255, 255, 255, 0.9); border-radius: 8px; cursor: pointer; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 8px 22px rgba(0, 0, 0, 0.22); background: transparent; transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
+.region { position: absolute; border: 2px solid rgba(255, 255, 255, 0.9); border-radius: 8px; cursor: pointer; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 8px 22px rgba(0, 0, 0, 0.22); background: transparent; transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, opacity 0.2s ease; }
 .region .tag { position: absolute; top: -12px; left: 8px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; background: rgba(255, 255, 255, 0.94); color: var(--ink-2); padding: 3px 8px; border-radius: 6px; white-space: nowrap; transition: background 0.15s ease, color 0.15s ease; }
-.region:not(.sel):hover { border-color: #fff; background: rgba(25, 25, 25, 0.08); box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.45), 0 12px 26px rgba(0, 0, 0, 0.3); }
+/* Spotlight the active surface: dim the others once one is selected. */
+.stage:has(.region.sel) .region:not(.sel) { opacity: 0.42; }
+.region:not(.sel):hover { opacity: 1; border-color: #fff; background: rgba(25, 25, 25, 0.08); box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.45), 0 12px 26px rgba(0, 0, 0, 0.3); }
 .region:not(.sel):hover .tag { background: #fff; color: var(--ink); }
-.region.sel { border-color: #fff; box-shadow: 0 0 0 2px var(--ink), 0 14px 30px rgba(0, 0, 0, 0.4); background: rgba(25, 25, 25, 0.14); }
+.region.sel { border-color: #fff; box-shadow: 0 0 0 2px var(--ink), 0 14px 30px rgba(0, 0, 0, 0.4); background: rgba(25, 25, 25, 0.14); animation: select-pop 0.32s ease; }
 .region.sel .tag { background: var(--ink); color: #fff; }
 
 /* ---- Studio: surface selector ---- */
@@ -174,12 +176,11 @@ button { font-family: inherit; }
 .surf-sw { width: 18px; height: 18px; border-radius: 5px; background-size: cover; background-position: center; }
 .surf-label { font-weight: 500; }
 .surf-count { font-size: 11px; color: var(--ink-3); }
-.surf.active { border-color: var(--ink); color: #fff; background: var(--ink); box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.5); }
+.surf.active { border-color: var(--ink); color: #fff; background: var(--ink); box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.5); animation: select-pop 0.32s ease; }
 .surf.active .surf-count { color: rgba(255, 255, 255, 0.6); }
 
 /* ---- Studio: match card ---- */
-.mcard { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; transition: 0.18s; }
-.mcard:hover { transform: translateY(-4px); box-shadow: 0 22px 40px -24px rgba(0, 0, 0, 0.5); border-color: var(--ink-3); }
+.mcard { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; animation: card-in 0.34s ease both; }
 .mswatch { position: relative; aspect-ratio: 1; }
 .mswatch img { width: 100%; height: 100%; object-fit: cover; }
 .sim { position: absolute; top: 9px; right: 9px; background: rgba(25, 25, 25, 0.82); color: #fff; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 100px; }
@@ -202,6 +203,23 @@ button { font-family: inherit; }
 .muted-copy { color: var(--ink-3); font-size: 14px; }
 @media (max-width: 1080px) { .match-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 560px) { .match-grid { grid-template-columns: 1fr; } }
+
+/* Staggered entrance for match cards. Re-fires on every region switch because
+   each card's React key changes per region, so the grid remounts. */
+@keyframes card-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.match-grid .mcard:nth-child(1) { animation-delay: 0ms; }
+.match-grid .mcard:nth-child(2) { animation-delay: 45ms; }
+.match-grid .mcard:nth-child(3) { animation-delay: 90ms; }
+.match-grid .mcard:nth-child(4) { animation-delay: 135ms; }
+.match-grid .mcard:nth-child(5) { animation-delay: 180ms; }
+.match-grid .mcard:nth-child(6) { animation-delay: 225ms; }
+
+/* Subtle pop when a surface becomes the active selection (region box + chip). */
+@keyframes select-pop { 0% { transform: scale(0.985); } 55% { transform: scale(1.015); } 100% { transform: scale(1); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .mcard, .region.sel, .surf.active { animation: none; }
+}
 
 /* ---- Studio: specification tray ---- */
 .tray { position: sticky; bottom: 0; margin-top: 34px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); border-top: 1px solid var(--line); }
