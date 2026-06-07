@@ -107,6 +107,53 @@ button { font-family: inherit; }
 .analysis-caption p { font-size: 14px; color: var(--ink-2); margin: 0; }
 .analysis-actions { display: flex; gap: 10px; margin-top: 14px; }
 
+/* ---- Transition: Progress reveal (live run) ---- */
+.progress { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 0; }
+.progress-card { display: grid; grid-template-columns: 1.5fr 1fr; gap: 30px; width: 100%; align-items: center; }
+
+.progress-stage { position: relative; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 30px 60px -34px rgba(0, 0, 0, 0.5); background: var(--paper-2); aspect-ratio: 5 / 4; }
+.progress-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: filter 0.4s; }
+.progress-stage.scanning img { filter: grayscale(0.25) contrast(1.02); }
+
+.progress-box { position: absolute; border-radius: 8px; overflow: hidden; transition: border-color 0.3s, box-shadow 0.3s, background 0.3s; }
+.progress-box.pending { border: 2px dashed rgba(255, 255, 255, 0.6); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18); animation: box-in 0.4s ease both; }
+.progress-box.matching { border: 2px solid rgba(255, 255, 255, 0.95); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 10px 26px rgba(0, 0, 0, 0.28); }
+.progress-box.matched { border: 2px solid #fff; box-shadow: 0 0 0 2px var(--ink), 0 14px 30px rgba(0, 0, 0, 0.4); background: rgba(25, 25, 25, 0.1); }
+@keyframes box-in { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
+
+.progress-box-scan { position: absolute; top: 0; bottom: 0; width: 40%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent); mix-blend-mode: overlay; animation: scan-sweep 1.5s ease-in-out infinite; }
+
+.progress-tag { position: absolute; top: -12px; left: 8px; display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; background: rgba(255, 255, 255, 0.94); color: var(--ink-2); padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
+.progress-box.matched .progress-tag { background: var(--ink); color: #fff; }
+.progress-tag-meta { font-weight: 600; opacity: 0.7; }
+
+.progress-rail { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.progress-eyebrow { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-3); font-weight: 700; margin-bottom: 6px; }
+.progress-step { display: flex; gap: 13px; padding: 16px 0; border-bottom: 1px solid var(--line-2); transition: opacity 0.3s; }
+.progress-step:last-child { border-bottom: 0; }
+.progress-step.pending { opacity: 0.42; }
+.progress-step h3 { font-size: 18px; }
+.progress-ic { flex: none; width: 26px; height: 26px; border-radius: 100px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); color: var(--ink-3); margin-top: 2px; }
+.progress-step.active .progress-ic { color: var(--ink); border-color: var(--ink-3); }
+.progress-step.done .progress-ic { background: var(--ink); border-color: var(--ink); color: #fff; }
+.progress-step-body { flex: 1; min-width: 0; }
+.progress-sub { font-size: 13px; color: var(--ink-2); margin: 4px 0 0; }
+
+.progress-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.progress-chip { font-size: 11.5px; color: var(--ink-3); background: var(--paper-2); border: 1px solid transparent; border-radius: 100px; padding: 3px 10px; transition: color 0.3s, background 0.3s, border-color 0.3s; }
+.progress-chip.found { color: var(--ink); background: var(--card); border-color: var(--line); }
+
+.progress-bar { height: 5px; background: var(--paper-2); border-radius: 3px; overflow: hidden; margin: 10px 0 8px; }
+.progress-bar > i { display: block; height: 100%; background: var(--ink); border-radius: 3px; transition: width 0.45s ease; }
+.progress-thumbs { display: flex; gap: 6px; margin-bottom: 8px; }
+.progress-thumb { width: 34px; height: 34px; border-radius: 7px; background-color: var(--paper-2); background-size: cover; background-position: center; border: 1px solid var(--line); animation: box-in 0.35s ease both; }
+.progress-thumb.empty { border: 1px dashed var(--line); background-color: var(--paper); }
+
+@media (max-width: 900px) {
+  .progress-card { grid-template-columns: 1fr; gap: 22px; }
+  .progress-stage { aspect-ratio: 3 / 2; }
+}
+
 /* ---- Studio: reference stage ---- */
 .ref-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
 .ref-head h2 { font-size: 24px; }

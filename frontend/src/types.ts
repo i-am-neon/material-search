@@ -39,6 +39,41 @@ export type CatalogSeedItem = {
   metadata: CatalogMetadata;
 };
 
+/**
+ * Live progress of a search run, streamed to the client while the LangGraph
+ * pipeline executes (plan -> segment -> match). A ProgressSnapshot is one
+ * partial view of the run; the client receives a sequence of them.
+ */
+export type ProgressStage = "planning" | "segmenting" | "matching" | "complete";
+
+/** Per-surface state during the run. A surface is segmented first, then matched. */
+export type ProgressSurfaceStatus = "pending" | "matching" | "matched";
+
+export type ProgressSurface = {
+  id: string;
+  label: string;
+  box: RegionBox;
+  score?: number;
+  status: ProgressSurfaceStatus;
+  /** Number of catalog matches found (once matched). */
+  matchCount?: number;
+  /** Thumbnail of the top match (once matched). */
+  thumbUrl?: string;
+};
+
+export type ProgressSnapshot = {
+  stage: ProgressStage;
+  /** Plain-language intent, available once planning completes. */
+  intent?: string;
+  /** Target labels chosen by the planner, before boxes are resolved. */
+  plannedTargets?: string[];
+  /** Resolved surfaces with boxes, populated from segmenting onward. */
+  surfaces: ProgressSurface[];
+  previewUrl?: string;
+  imageWidth?: number;
+  imageHeight?: number;
+};
+
 export type MatchFit = "Best fit" | "Close alternate" | "Creative option";
 
 export type ProductMatch = {
