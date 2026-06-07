@@ -23,8 +23,16 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      - key: LOGFIRE_TOKEN
+        sync: false
       - key: CORS_ORIGINS
         value: https://i-am-neon.github.io
+      - key: LOGFIRE_ENABLED
+        value: "true"
+      - key: LOGFIRE_SERVICE_NAME
+        value: material-search-api
+      - key: LOGFIRE_BASE_URL
+        value: https://logfire-us.pydantic.dev
       - key: EMBEDDING_MODEL_ID
         value: google/siglip2-so400m-patch14-384
       - key: EMBEDDING_DIMENSIONS

@@ -5,6 +5,8 @@ from urllib.parse import quote
 import httpx
 from pydantic import BaseModel, Field
 
+from app.core.observability import search_source_kind, span
+
 SAM3_MODEL_ID = "facebook/sam3"
 
 
@@ -79,33 +81,71 @@ class HttpSam3Client(Sam3Client):
             sam3_image_url = self._create_signed_uploaded_image_url(image_object_key)
             sam3_image_object_key = None
 
-        response = httpx.post(
-            f"{self.base_url}/segment-image",
-            json={
-                "prompt": prompt,
-                "image_object_key": sam3_image_object_key,
-                "image_url": sam3_image_url,
-                "confidence_threshold": confidence_threshold,
-                "max_regions": max_regions,
-                "include_masks": include_masks,
-            },
-            timeout=self.timeout_seconds,
-            follow_redirects=True,
-        )
-        response.raise_for_status()
-        result = SegmentationResult.model_validate(response.json())
-        if result.model_id != SAM3_MODEL_ID:
-            raise ValueError(
-                f"SAM3 service returned model_id={result.model_id!r}, expected {SAM3_MODEL_ID!r}"
+        request_body = {
+            "prompt": prompt,
+            "image_object_key": sam3_image_object_key,
+            "image_url": sam3_image_url,
+            "confidence_threshold": confidence_threshold,
+            "max_regions": max_regions,
+            "include_masks": include_masks,
+        }
+        with span(
+            "model_services.sam3.segment_image",
+            provider="modal",
+            model_id=SAM3_MODEL_ID,
+            endpoint="/segment-image",
+            prompt=prompt,
+            source_kind=search_source_kind(
+                image_object_key=sam3_image_object_key,
+                image_url=sam3_image_url,
+            ),
+            image_object_key=sam3_image_object_key,
+            has_signed_image_url=sam3_image_url is not None,
+            confidence_threshold=confidence_threshold,
+            max_regions=max_regions,
+            include_masks=include_masks,
+        ) as active_span:
+            response = httpx.post(
+                f"{self.base_url}/segment-image",
+                json=request_body,
+                timeout=self.timeout_seconds,
+                follow_redirects=True,
             )
-        if result.prompt != prompt:
-            raise ValueError(f"SAM3 service returned prompt={result.prompt!r}, expected {prompt!r}")
-        if len(result.regions) > max_regions:
-            raise ValueError(
-                "SAM3 service returned "
-                f"{len(result.regions)} regions, expected at most {max_regions}"
+            active_span.set_attributes(_response_metadata(response))
+            response.raise_for_status()
+            result = SegmentationResult.model_validate(response.json())
+            active_span.set_attributes(
+                {
+                    "response_model_id": result.model_id,
+                    "image_width": result.image_width,
+                    "image_height": result.image_height,
+                    "region_count": len(result.regions),
+                    "regions": [
+                        {
+                            "id": region.id,
+                            "score": region.score,
+                            "box_xyxy": region.box_xyxy,
+                            "has_mask": region.mask is not None,
+                        }
+                        for region in result.regions
+                    ],
+                }
             )
-        return result
+            if result.model_id != SAM3_MODEL_ID:
+                raise ValueError(
+                    f"SAM3 service returned model_id={result.model_id!r}, "
+                    f"expected {SAM3_MODEL_ID!r}"
+                )
+            if result.prompt != prompt:
+                raise ValueError(
+                    f"SAM3 service returned prompt={result.prompt!r}, expected {prompt!r}"
+                )
+            if len(result.regions) > max_regions:
+                raise ValueError(
+                    "SAM3 service returned "
+                    f"{len(result.regions)} regions, expected at most {max_regions}"
+                )
+            return result
 
     def _create_signed_uploaded_image_url(self, object_key: str) -> str:
         response = httpx.post(
@@ -149,3 +189,14 @@ class MissingSam3Client(Sam3Client):
 
 def _quote_key(object_key: str) -> str:
     return quote(object_key.lstrip("/"), safe="/")
+
+
+def _response_metadata(response: httpx.Response) -> dict[str, int]:
+    metadata = {}
+    status_code = getattr(response, "status_code", None)
+    if status_code is not None:
+        metadata["http_status_code"] = status_code
+    content = getattr(response, "content", None)
+    if content is not None:
+        metadata["response_content_length"] = len(content)
+    return metadata

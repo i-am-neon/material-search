@@ -32,6 +32,10 @@ jobs:
       EMBEDDING_MODEL_ID: google/siglip2-so400m-patch14-384
       EMBEDDING_DIMENSIONS: "1152"
       CATALOG_IMAGE_BUCKET: catalog-images
+      LOGFIRE_ENABLED: "true"
+      LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+      LOGFIRE_SERVICE_NAME: material-search-catalog-index
+      LOGFIRE_BASE_URL: https://logfire-us.pydantic.dev
     steps:
       - name: Checkout
         uses: actions/checkout@v6

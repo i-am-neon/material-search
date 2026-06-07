@@ -5,6 +5,7 @@ from app.catalog.enrichment import CatalogEnricher
 from app.catalog.repository import PostgresCatalogRepository
 from app.catalog.schemas import CatalogEmbeddingJob
 from app.core.config import get_settings
+from app.core.observability import configure_observability, span
 from app.db import get_connection
 from app.model_services.factory import get_embedding_client
 
@@ -26,49 +27,65 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--max-items must be 0 or greater")
 
     settings = get_settings()
+    configure_observability(settings)
     processed = 0
 
-    with get_connection() as conn:
-        repository = PostgresCatalogRepository(conn)
-        client = get_embedding_client()
-        enricher = CatalogEnricher(repository, client)
-        remaining = repository.count_items_missing_embedding(
-            model_id=settings.embedding_model_id,
-            dimensions=settings.embedding_dimensions,
-        )
-        print(f"Missing catalog embeddings: {remaining}")
-
-        while remaining > 0:
-            if args.max_items and processed >= args.max_items:
-                break
-
-            batch_limit = args.batch_size
-            if args.max_items:
-                batch_limit = min(batch_limit, args.max_items - processed)
-
-            items = repository.list_items_missing_embedding(
-                model_id=settings.embedding_model_id,
-                dimensions=settings.embedding_dimensions,
-                limit=batch_limit,
-            )
-            if not items:
-                break
-
-            for item in items:
-                job = CatalogEmbeddingJob(
-                    catalog_item_id=item.id,
-                    model_id=settings.embedding_model_id,
-                    dimensions=settings.embedding_dimensions,
-                )
-                enricher.enrich_item(job)
-                processed += 1
-                print(f"Indexed {processed}: {item.id} {item.manufacturer} / {item.name}")
-
+    with span(
+        "catalog.index_missing",
+        batch_size=args.batch_size,
+        max_items=args.max_items,
+        model_id=settings.embedding_model_id,
+        dimensions=settings.embedding_dimensions,
+    ) as active_span:
+        with get_connection() as conn:
+            repository = PostgresCatalogRepository(conn)
+            client = get_embedding_client()
+            enricher = CatalogEnricher(repository, client)
             remaining = repository.count_items_missing_embedding(
                 model_id=settings.embedding_model_id,
                 dimensions=settings.embedding_dimensions,
             )
-            print(f"Remaining catalog embeddings: {remaining}")
+            active_span.set_attribute("initial_missing_count", remaining)
+            print(f"Missing catalog embeddings: {remaining}")
+
+            while remaining > 0:
+                if args.max_items and processed >= args.max_items:
+                    break
+
+                batch_limit = args.batch_size
+                if args.max_items:
+                    batch_limit = min(batch_limit, args.max_items - processed)
+
+                items = repository.list_items_missing_embedding(
+                    model_id=settings.embedding_model_id,
+                    dimensions=settings.embedding_dimensions,
+                    limit=batch_limit,
+                )
+                if not items:
+                    break
+
+                for item in items:
+                    job = CatalogEmbeddingJob(
+                        catalog_item_id=item.id,
+                        model_id=settings.embedding_model_id,
+                        dimensions=settings.embedding_dimensions,
+                    )
+                    enricher.enrich_item(job)
+                    processed += 1
+                    print(f"Indexed {processed}: {item.id} {item.manufacturer} / {item.name}")
+
+                remaining = repository.count_items_missing_embedding(
+                    model_id=settings.embedding_model_id,
+                    dimensions=settings.embedding_dimensions,
+                )
+                print(f"Remaining catalog embeddings: {remaining}")
+
+        active_span.set_attributes(
+            {
+                "processed_count": processed,
+                "remaining_count": remaining,
+            }
+        )
 
     print(f"Indexed catalog embeddings: {processed}")
     return 0
@@ -76,4 +93,3 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

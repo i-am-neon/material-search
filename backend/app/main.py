@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.catalog.router import router as catalog_router
 from app.core.config import get_settings
+from app.core.observability import configure_observability
 from app.dev.router import router as dev_router
 from app.search.router import router as search_router
 
@@ -10,6 +11,7 @@ from app.search.router import router as search_router
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.app_name)
+    configure_observability(settings, app=app)
     if settings.cors_origins:
         app.add_middleware(
             CORSMiddleware,

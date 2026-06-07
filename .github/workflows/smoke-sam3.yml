@@ -24,6 +24,10 @@ jobs:
         working-directory: backend
     env:
       SAM3_SERVICE_URL: ${{ secrets.SAM3_SERVICE_URL }}
+      LOGFIRE_ENABLED: "true"
+      LOGFIRE_TOKEN: ${{ secrets.LOGFIRE_TOKEN }}
+      LOGFIRE_SERVICE_NAME: material-search-sam3-smoke
+      LOGFIRE_BASE_URL: https://logfire-us.pydantic.dev
     steps:
       - name: Checkout
         uses: actions/checkout@v6

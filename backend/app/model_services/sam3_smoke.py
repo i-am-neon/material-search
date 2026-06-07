@@ -1,6 +1,8 @@
 import argparse
 import json
 
+from app.core.config import get_settings
+from app.core.observability import configure_observability, span
 from app.model_services.factory import get_sam3_client
 
 DEFAULT_SMOKE_IMAGE_URL = (
@@ -22,18 +24,37 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    result = get_sam3_client().segment_image(
+    configure_observability(get_settings())
+    with span(
+        "model_services.sam3_smoke",
         prompt=args.prompt,
-        image_object_key=args.image_object_key,
-        image_url=args.image_url,
+        source_kind="object_key" if args.image_object_key else "url",
         confidence_threshold=args.confidence_threshold,
         max_regions=args.max_regions,
         include_masks=args.include_masks,
-    )
-    if len(result.regions) < args.min_regions:
-        raise RuntimeError(
-            f"SAM3 smoke expected at least {args.min_regions} region(s), got {len(result.regions)}"
+        min_regions=args.min_regions,
+    ) as active_span:
+        result = get_sam3_client().segment_image(
+            prompt=args.prompt,
+            image_object_key=args.image_object_key,
+            image_url=args.image_url,
+            confidence_threshold=args.confidence_threshold,
+            max_regions=args.max_regions,
+            include_masks=args.include_masks,
         )
+        active_span.set_attributes(
+            {
+                "model_id": result.model_id,
+                "image_width": result.image_width,
+                "image_height": result.image_height,
+                "region_count": len(result.regions),
+            }
+        )
+        if len(result.regions) < args.min_regions:
+            raise RuntimeError(
+                f"SAM3 smoke expected at least {args.min_regions} region(s), "
+                f"got {len(result.regions)}"
+            )
     print(
         json.dumps(
             {

@@ -30,6 +30,7 @@ set_secret EMBEDDING_SERVICE_URL
 set_secret SAM3_SERVICE_URL
 set_secret GEMINI_API_KEY
 set_secret RENDER_API_KEY
+set_secret LOGFIRE_TOKEN
 
 if [[ -f "$HOME/.modal.toml" ]]; then
   python3 - "$REPO" <<'PY'

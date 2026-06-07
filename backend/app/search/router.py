@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from app.catalog.dependencies import get_catalog_repository
 from app.catalog.repository import CatalogRepository
+from app.core.observability import search_source_kind, span
 from app.model_services.embeddings import EmbeddingClient
 from app.model_services.factory import (
     get_embedding_client,
@@ -63,11 +64,22 @@ async def upload_search_image(
         raise HTTPException(status_code=413, detail="Uploaded image must be 12 MB or smaller")
 
     try:
-        uploaded = uploaded_image_store.upload_image(
-            filename=image.filename or "reference",
-            content=content,
+        with span(
+            "material_search.upload_image",
             content_type=image.content_type,
-        )
+            size_bytes=len(content),
+        ) as active_span:
+            uploaded = uploaded_image_store.upload_image(
+                filename=image.filename or "reference",
+                content=content,
+                content_type=image.content_type,
+            )
+            active_span.set_attributes(
+                {
+                    "image_object_key": uploaded.object_key,
+                    "stored_content_type": uploaded.content_type,
+                }
+            )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except httpx.HTTPError as exc:
@@ -90,14 +102,28 @@ def create_search_run(
     search_run_repository: Annotated[SearchRunRepository, Depends(get_search_run_repository)],
     dispatcher: Annotated[SearchRunDispatcher, Depends(get_search_run_dispatcher)],
 ) -> SearchRunAccepted:
-    run = search_run_repository.create_run(request, status="queued")
-    queued_request = request.model_copy(update={"run_id": run.id})
-    try:
-        dispatcher.enqueue(queued_request)
-    except Exception as exc:
-        search_run_repository.fail_run(run_id=run.id, error=f"Search enqueue failed: {exc}")
-        raise HTTPException(status_code=503, detail="Search queue is unavailable") from exc
-    return SearchRunAccepted(run_id=run.id, status=run.status)
+    with span(
+        "material_search.enqueue_run",
+        source_kind=search_source_kind(
+            image_object_key=request.image_object_key,
+            image_url=request.image_url,
+        ),
+        prompt_length=len(request.prompt),
+        max_regions=request.max_regions,
+        matches_per_region=request.matches_per_region,
+        model_id=request.model_id,
+        dimensions=request.dimensions,
+    ) as active_span:
+        run = search_run_repository.create_run(request, status="queued")
+        active_span.set_attribute("run_id", str(run.id))
+        queued_request = request.model_copy(update={"run_id": run.id})
+        try:
+            dispatcher.enqueue(queued_request)
+        except Exception as exc:
+            search_run_repository.fail_run(run_id=run.id, error=f"Search enqueue failed: {exc}")
+            active_span.set_attribute("enqueue_failed", True)
+            raise HTTPException(status_code=503, detail="Search queue is unavailable") from exc
+        return SearchRunAccepted(run_id=run.id, status=run.status)
 
 
 @router.get("/runs/{run_id}", response_model=SearchRunStatusResponse)

@@ -93,3 +93,9 @@ set_render_env EMBEDDING_DIMENSIONS
 set_render_env CATALOG_IMAGE_BUCKET
 set_render_env UPLOADED_IMAGE_BUCKET
 set_render_env GENERATED_ARTIFACT_BUCKET
+set_render_env LOGFIRE_ENABLED
+set_render_env LOGFIRE_TOKEN
+set_render_env LOGFIRE_SERVICE_NAME
+set_render_env LOGFIRE_BASE_URL
+set_render_env LOGFIRE_INSTRUMENT_HTTPX
+set_render_env LOGFIRE_INSTRUMENT_PSYCOPG

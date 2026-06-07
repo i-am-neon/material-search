@@ -51,6 +51,18 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = Field(
         default="", validation_alias="SUPABASE_SERVICE_ROLE_KEY"
     )
+    logfire_enabled: bool = Field(default=True, validation_alias="LOGFIRE_ENABLED")
+    logfire_token: str = Field(default="", validation_alias="LOGFIRE_TOKEN")
+    logfire_service_name: str = Field(
+        default="material-search-api", validation_alias="LOGFIRE_SERVICE_NAME"
+    )
+    logfire_base_url: str = Field(default="", validation_alias="LOGFIRE_BASE_URL")
+    logfire_instrument_httpx: bool = Field(
+        default=True, validation_alias="LOGFIRE_INSTRUMENT_HTTPX"
+    )
+    logfire_instrument_psycopg: bool = Field(
+        default=True, validation_alias="LOGFIRE_INSTRUMENT_PSYCOPG"
+    )
 
     @field_validator("embedding_service_url", "sam3_service_url", "supabase_url", mode="before")
     @classmethod
