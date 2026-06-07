@@ -1,4 +1,4 @@
-import { Grid2X2, Layers3, ShoppingCart } from "lucide-react";
+import { Braces, Grid2X2, Layers3, ShoppingCart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useSearchRun, type UseSearchRunOptions } from "../hooks/useSearchRun";
 import type { RunScenario } from "../types";
@@ -26,6 +26,7 @@ export function SearchWorkbench({ initialScenario = "empty", testTiming }: Searc
         <nav className="topnav">
           <Link className="active" to="/">Search</Link>
           <Link to="/catalog"><Grid2X2 size={15} /> Catalog</Link>
+          <Link to="/sam3-playground"><Braces size={15} /> SAM3</Link>
           <span className="topnav-cart"><ShoppingCart size={15} /> {run.cartIds.length}</span>
         </nav>
       </header>

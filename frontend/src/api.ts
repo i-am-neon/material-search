@@ -16,6 +16,15 @@ export type SegmentMatchRequest = {
   min_similarity?: number;
 };
 
+export type RawSam3SegmentRequest = {
+  image_object_key?: string;
+  image_url?: string;
+  prompt: string;
+  confidence_threshold?: number;
+  max_regions?: number;
+  include_masks?: boolean;
+};
+
 export type CatalogItemResponse = {
   id: string;
   manufacturer: string;
@@ -40,11 +49,26 @@ export type RankedRegionMatchResponse = {
   match: CatalogMatchResponse;
 };
 
+export type SegmentationMaskResponse = {
+  format: "uncompressed_rle";
+  size: [number, number];
+  counts: number[];
+};
+
 export type SegmentationRegionResponse = {
   id: string;
   prompt: string;
   score: number;
   box_xyxy: [number, number, number, number];
+  mask?: SegmentationMaskResponse | null;
+};
+
+export type RawSam3SegmentResponse = {
+  model_id: string;
+  image_width: number;
+  image_height: number;
+  prompt: string;
+  regions: SegmentationRegionResponse[];
 };
 
 export type PlannedMaterialTargetResponse = {
@@ -161,6 +185,17 @@ export async function segmentMatches(
     body: JSON.stringify(request),
   });
   return parseJsonResponse<SegmentMatchResponse>(response);
+}
+
+export async function segmentSam3(
+  request: RawSam3SegmentRequest,
+): Promise<RawSam3SegmentResponse> {
+  const response = await fetch(apiUrl("/dev/sam3/segment"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(request),
+  });
+  return parseJsonResponse<RawSam3SegmentResponse>(response);
 }
 
 export async function createSearchRun(
