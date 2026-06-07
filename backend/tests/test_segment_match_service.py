@@ -328,6 +328,7 @@ class FakeSearchRunRepository:
         self.complete_run_calls: list[dict] = []
         self.fail_run_calls: list[dict] = []
         self.replace_planned_targets_calls: list[dict] = []
+        self.store_segments_calls: list[dict] = []
         self.region_id = uuid4()
 
     def create_run(
@@ -377,6 +378,21 @@ class FakeSearchRunRepository:
                 "avoid": plan.avoid,
             }
         )
+
+    def store_segments(
+        self, *, run_id: UUID, segments, image_width: int, image_height: int
+    ) -> None:
+        self.store_segments_calls.append(
+            {
+                "run_id": run_id,
+                "result_region_ids": [segment.result_region_id for segment in segments],
+                "image_width": image_width,
+                "image_height": image_height,
+            }
+        )
+
+    def get_run_progress(self, run_id: UUID):
+        return None
 
     def complete_run(
         self, *, run_id: UUID, image_width: int, image_height: int

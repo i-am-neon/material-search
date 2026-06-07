@@ -88,12 +88,22 @@ export type SegmentMatchResponse = {
 
 export type SearchRunStatus = "queued" | "running" | "completed" | "failed";
 
+export type SearchRunStage =
+  | "queued"
+  | "planning"
+  | "segmenting"
+  | "matching"
+  | "complete"
+  | "failed";
+
 export type MaterialSearchRunResponse = {
   id: string;
   prompt: string;
   source_image_object_key: string | null;
   source_image_url: string | null;
   status: SearchRunStatus;
+  stage?: SearchRunStage;
+  intent_summary?: string | null;
   error: string | null;
   image_width: number | null;
   image_height: number | null;
@@ -106,9 +116,29 @@ export type SearchRunAcceptedResponse = {
   status: SearchRunStatus;
 };
 
+export type ProgressSurfaceResponse = {
+  result_region_id: string;
+  label: string;
+  box_xyxy: [number, number, number, number];
+  score: number;
+  status: "pending" | "matching" | "matched";
+  match_count: number;
+  thumb_url: string | null;
+};
+
+export type SearchRunProgressResponse = {
+  stage: SearchRunStage;
+  intent: string | null;
+  planned_targets: string[];
+  surfaces: ProgressSurfaceResponse[];
+  image_width: number | null;
+  image_height: number | null;
+};
+
 export type SearchRunStatusResponse = {
   run: MaterialSearchRunResponse;
   result: SegmentMatchResponse | null;
+  progress?: SearchRunProgressResponse | null;
 };
 
 export async function uploadSearchImage(file: File): Promise<UploadedImageResponse> {

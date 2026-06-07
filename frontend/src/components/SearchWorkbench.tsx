@@ -4,6 +4,7 @@ import { useSearchRun, type UseSearchRunOptions } from "../hooks/useSearchRun";
 import type { RunScenario } from "../types";
 import { IntakeScreen } from "./IntakeScreen";
 import { AnalysisReveal } from "./AnalysisReveal";
+import { ProgressReveal } from "./ProgressReveal";
 import { StudioScreen } from "./studio/StudioScreen";
 
 type SearchWorkbenchProps = {
@@ -44,7 +45,9 @@ export function SearchWorkbench({ initialScenario = "empty", testTiming }: Searc
       ) : null}
 
       {run.scenario === "planning" || run.scenario === "matching" ? (
-        <AnalysisReveal mode="analyzing" previewUrl={run.previewUrl} error={null} onRetry={run.run} onReset={() => window.location.reload()} />
+        <ProgressReveal
+          snapshot={run.progress ?? { stage: "planning", surfaces: [], previewUrl: run.previewUrl }}
+        />
       ) : null}
 
       {run.scenario === "failed" ? (

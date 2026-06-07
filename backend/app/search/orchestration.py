@@ -1,7 +1,7 @@
+import re
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-import re
 from typing import TypedDict, TypeVar
 from urllib.parse import urlsplit, urlunsplit
 
@@ -23,6 +23,7 @@ from app.search.schemas import (
     SegmentMatchRequest,
     SegmentMatchResponse,
     SegmentRegionMatchSet,
+    StoredSegment,
     build_result_region_id,
 )
 
@@ -181,6 +182,29 @@ class MaterialSearchGraph:
 
         if image_width is None or image_height is None:
             raise RuntimeError("Material search plan did not produce any segmentation requests")
+
+        if self.search_run_repository is not None:
+            stored_segments = [
+                StoredSegment(
+                    result_region_id=build_result_region_id(
+                        target_id=planned.target.target_id,
+                        source_region_id=region.id,
+                    ),
+                    target_id=planned.target.target_id,
+                    source_region_id=region.id,
+                    label=planned.target.label,
+                    box_xyxy=list(region.box_xyxy),
+                    score=region.score,
+                )
+                for planned in segmentations
+                for region in planned.segmentation.regions
+            ]
+            self.search_run_repository.store_segments(
+                run_id=request.run_id,
+                segments=stored_segments,
+                image_width=image_width,
+                image_height=image_height,
+            )
 
         return {
             "segmentations": segmentations,

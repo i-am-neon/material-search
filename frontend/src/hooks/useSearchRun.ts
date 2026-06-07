@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  type SearchRunProgressResponse,
   type SegmentMatchResponse,
   type SegmentRegionMatchSetResponse,
   createSearchRun,
@@ -8,7 +9,15 @@ import {
 } from "../api";
 import { defaultPrompt, matchesByRegion, regions as demoRegions } from "../demoData";
 import { fileFromSample, type SampleImageOption } from "../samples";
-import type { CatalogMetadata, MaterialRegion, ProductMatch, RunScenario } from "../types";
+import type {
+  CatalogMetadata,
+  MaterialRegion,
+  ProductMatch,
+  ProgressSnapshot,
+  ProgressStage,
+  ProgressSurface,
+  RunScenario,
+} from "../types";
 
 export type Surface = { region: MaterialRegion; matchCount: number; thumbUrl?: string };
 
@@ -35,6 +44,7 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
   const [selectedFileName, setSelectedFileName] = React.useState<string | undefined>();
   const [previewUrl, setPreviewUrl] = React.useState<string | undefined>();
   const [runResult, setRunResult] = React.useState<SegmentMatchResponse | null>(null);
+  const [progress, setProgress] = React.useState<ProgressSnapshot | null>(null);
   const [selectedRegionId, setSelectedRegionId] = React.useState(demoRegions[0].id);
   const [cartIds, setCartIds] = React.useState<string[]>([]);
   const [error, setError] = React.useState<string | null>(null);
@@ -87,6 +97,7 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
 
   const resetForNewImage = () => {
     setRunResult(null);
+    setProgress(null);
     setCartIds([]);
     setError(null);
     setScenario("empty");
@@ -132,6 +143,7 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
     setRunResult(null);
     setCartIds([]);
     setScenario("planning");
+    setProgress({ stage: "planning", surfaces: [], previewUrl });
     const seq = runSequenceRef.current + 1;
     runSequenceRef.current = seq;
     const startedAt = nowMs();
@@ -148,7 +160,9 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
       });
       if (seq !== runSequenceRef.current) return;
       setScenario("matching");
-      const result = await pollSearchRun(accepted.run_id, pollIntervalMs);
+      const result = await pollSearchRun(accepted.run_id, pollIntervalMs, (snapshot) => {
+        if (seq === runSequenceRef.current) setProgress(mapProgress(snapshot, previewUrl));
+      });
       if (seq !== runSequenceRef.current) return;
       await ensureMinDuration(startedAt, minAnalyzeMs);
       if (seq !== runSequenceRef.current) return;
@@ -178,6 +192,7 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
     imageHeight: runResult?.image_height,
     error,
     isRunning,
+    progress,
     selectFile,
     selectSample,
     run,
@@ -202,9 +217,14 @@ async function ensureMinDuration(startedAt: number, minMs: number): Promise<void
   if (elapsed < minMs) await delay(minMs - elapsed);
 }
 
-async function pollSearchRun(runId: string, intervalMs: number): Promise<SegmentMatchResponse> {
+async function pollSearchRun(
+  runId: string,
+  intervalMs: number,
+  onProgress?: (progress: SearchRunProgressResponse) => void,
+): Promise<SegmentMatchResponse> {
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
     const status = await getSearchRunStatus(runId);
+    if (status.progress && onProgress) onProgress(status.progress);
     if (status.run.status === "completed") {
       if (!status.result) throw new Error("Search completed without persisted results.");
       return status.result;
@@ -213,6 +233,46 @@ async function pollSearchRun(runId: string, intervalMs: number): Promise<Segment
     await delay(intervalMs);
   }
   throw new Error("Search is still running. Try refreshing the run status.");
+}
+
+const STAGE_MAP: Record<SearchRunProgressResponse["stage"], ProgressStage> = {
+  queued: "planning",
+  planning: "planning",
+  segmenting: "segmenting",
+  matching: "matching",
+  complete: "complete",
+  failed: "planning",
+};
+
+function mapProgress(progress: SearchRunProgressResponse, previewUrl?: string): ProgressSnapshot {
+  const width = progress.image_width ?? 0;
+  const height = progress.image_height ?? 0;
+  const surfaces: ProgressSurface[] = progress.surfaces.map((surface) => {
+    const [x0, y0, x1, y1] = surface.box_xyxy;
+    return {
+      id: surface.result_region_id,
+      label: surface.label,
+      score: surface.score,
+      status: surface.status,
+      matchCount: surface.match_count,
+      thumbUrl: surface.thumb_url ?? undefined,
+      box: {
+        left: percent(x0, width),
+        top: percent(y0, height),
+        width: percent(x1 - x0, width),
+        height: percent(y1 - y0, height),
+      },
+    };
+  });
+  return {
+    stage: STAGE_MAP[progress.stage],
+    intent: progress.intent ?? undefined,
+    plannedTargets: progress.planned_targets,
+    surfaces,
+    previewUrl,
+    imageWidth: width || undefined,
+    imageHeight: height || undefined,
+  };
 }
 
 function delay(ms: number): Promise<void> {

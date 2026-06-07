@@ -108,8 +108,13 @@ def get_search_run_status(
     run = search_run_repository.get_run(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail=f"Search run {run_id} was not found")
-    result = search_run_repository.get_run_result(run_id) if run.status == "completed" else None
-    return SearchRunStatusResponse(run=run, result=result)
+    if run.status == "completed":
+        result = search_run_repository.get_run_result(run_id)
+        return SearchRunStatusResponse(run=run, result=result)
+    progress = (
+        search_run_repository.get_run_progress(run_id) if run.status != "failed" else None
+    )
+    return SearchRunStatusResponse(run=run, progress=progress)
 
 
 @router.post("/segment-matches", response_model=SegmentMatchResponse)

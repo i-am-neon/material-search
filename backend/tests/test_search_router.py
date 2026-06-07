@@ -153,6 +153,14 @@ class FakeSearchRunRepository:
     def replace_planned_targets(self, *, run_id: UUID, plan: MaterialSearchPlan) -> None:
         return None
 
+    def store_segments(
+        self, *, run_id: UUID, segments, image_width: int, image_height: int
+    ) -> None:
+        return None
+
+    def get_run_progress(self, run_id: UUID):
+        return None
+
     def complete_run(
         self, *, run_id: UUID, image_width: int, image_height: int
     ) -> MaterialSearchRun:

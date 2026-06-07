@@ -114,6 +114,9 @@ class UploadImageResponse(BaseModel):
 
 SearchRunStatus = Literal["queued", "running", "completed", "failed"]
 SearchRegionStatus = Literal["matched", "failed"]
+# Finer-grained pipeline position within a running run, streamed to the client.
+SearchRunStage = Literal["queued", "planning", "segmenting", "matching", "complete", "failed"]
+ProgressSurfaceStatus = Literal["pending", "matching", "matched"]
 
 
 class MaterialSearchRun(BaseModel):
@@ -122,11 +125,45 @@ class MaterialSearchRun(BaseModel):
     source_image_object_key: str | None
     source_image_url: HttpUrl | None
     status: SearchRunStatus
+    stage: SearchRunStage = "queued"
+    intent_summary: str | None = None
     error: str | None
     image_width: int | None
     image_height: int | None
     created_at: datetime
     updated_at: datetime
+
+
+class StoredSegment(BaseModel):
+    """A segmented surface persisted at segmentation time, before matching runs."""
+
+    result_region_id: str
+    target_id: str | None = None
+    source_region_id: str
+    label: str
+    box_xyxy: list[float]
+    score: float
+
+
+class ProgressSurface(BaseModel):
+    result_region_id: str
+    label: str
+    box_xyxy: list[float]
+    score: float
+    status: ProgressSurfaceStatus
+    match_count: int = 0
+    thumb_url: str | None = None
+
+
+class SearchRunProgress(BaseModel):
+    """Partial view of a run while it executes; the client polls a stream of these."""
+
+    stage: SearchRunStage
+    intent: str | None = None
+    planned_targets: list[str] = Field(default_factory=list)
+    surfaces: list[ProgressSurface] = Field(default_factory=list)
+    image_width: int | None = None
+    image_height: int | None = None
 
 
 class MaterialSearchRegionRecord(BaseModel):
@@ -168,6 +205,7 @@ class SearchRunAccepted(BaseModel):
 class SearchRunStatusResponse(BaseModel):
     run: MaterialSearchRun
     result: SegmentMatchResponse | None = None
+    progress: SearchRunProgress | None = None
 
 
 def build_result_region_id(*, target_id: str | None, source_region_id: str) -> str:

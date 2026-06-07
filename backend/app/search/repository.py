@@ -15,11 +15,14 @@ from app.search.schemas import (
     MaterialSearchRegionRecord,
     MaterialSearchRun,
     PlannedMaterialTarget,
+    ProgressSurface,
     RankedRegionMatch,
+    SearchRunProgress,
     SearchRunStatus,
     SegmentMatchRequest,
     SegmentMatchResponse,
     SegmentRegionMatchSet,
+    StoredSegment,
     build_result_region_id,
 )
 
@@ -45,6 +48,21 @@ class SearchRunRepository(ABC):
 
     @abstractmethod
     def replace_planned_targets(self, *, run_id: UUID, plan: MaterialSearchPlan) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def store_segments(
+        self,
+        *,
+        run_id: UUID,
+        segments: list[StoredSegment],
+        image_width: int,
+        image_height: int,
+    ) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_run_progress(self, run_id: UUID) -> SearchRunProgress | None:
         raise NotImplementedError
 
     @abstractmethod
@@ -127,6 +145,7 @@ class PostgresSearchRunRepository(SearchRunRepository):
             """
             update material_search_runs
             set status = 'running',
+                stage = 'planning',
                 error = null
             where id = %s
             returning *
@@ -139,10 +158,28 @@ class PostgresSearchRunRepository(SearchRunRepository):
     def clear_run_outputs(self, run_id: UUID) -> None:
         self.conn.execute("delete from material_search_regions where run_id = %s", (run_id,))
         self.conn.execute("delete from material_search_targets where run_id = %s", (run_id,))
+        self.conn.execute(
+            """
+            update material_search_runs
+            set segments = null,
+                intent_summary = null
+            where id = %s
+            """,
+            (run_id,),
+        )
         self.conn.commit()
 
     def replace_planned_targets(self, *, run_id: UUID, plan: MaterialSearchPlan) -> None:
         with self.conn.transaction():
+            self.conn.execute(
+                """
+                update material_search_runs
+                set stage = 'segmenting',
+                    intent_summary = %s
+                where id = %s
+                """,
+                (plan.user_intent_summary, run_id),
+            )
             self.conn.execute("delete from material_search_targets where run_id = %s", (run_id,))
             for target in plan.targets:
                 self.conn.execute(
@@ -174,6 +211,105 @@ class PostgresSearchRunRepository(SearchRunRepository):
                 )
         self.conn.commit()
 
+    def store_segments(
+        self,
+        *,
+        run_id: UUID,
+        segments: list[StoredSegment],
+        image_width: int,
+        image_height: int,
+    ) -> None:
+        # Persisted as soon as SAM3 returns, before matching runs, so the client
+        # can draw surface boxes during the matching stage.
+        self.conn.execute(
+            """
+            update material_search_runs
+            set stage = 'matching',
+                segments = %s::jsonb,
+                image_width = %s,
+                image_height = %s
+            where id = %s
+            """,
+            (
+                Jsonb([segment.model_dump(mode="json") for segment in segments]),
+                image_width,
+                image_height,
+                run_id,
+            ),
+        )
+        self.conn.commit()
+
+    def get_run_progress(self, run_id: UUID) -> SearchRunProgress | None:
+        run = self.get_run(run_id)
+        if run is None:
+            return None
+
+        target_rows = self.conn.execute(
+            "select label from material_search_targets where run_id = %s order by priority asc",
+            (run_id,),
+        ).fetchall()
+        planned_targets = [row["label"] for row in target_rows]
+
+        segment_row = self.conn.execute(
+            "select segments from material_search_runs where id = %s",
+            (run_id,),
+        ).fetchone()
+        stored_segments = (segment_row["segments"] if segment_row else None) or []
+
+        # Per-surface match progress: which surfaces are matched, with a thumbnail.
+        matched_rows = self.conn.execute(
+            """
+            select
+              r.target_id,
+              r.source_region_id,
+              count(m.id) as match_count,
+              (array_agg(ci.image_url order by m.rank asc))[1] as thumb_url
+            from material_search_regions r
+            join material_search_matches m on m.region_id = r.id
+            join catalog_items ci on ci.id = m.catalog_item_id
+            where r.run_id = %s
+            group by r.id, r.target_id, r.source_region_id
+            """,
+            (run_id,),
+        ).fetchall()
+        matched: dict[str, tuple[int, str | None]] = {}
+        for row in matched_rows:
+            result_region_id = build_result_region_id(
+                target_id=row["target_id"],
+                source_region_id=row["source_region_id"],
+            )
+            matched[result_region_id] = (row["match_count"], row["thumb_url"])
+
+        surfaces: list[ProgressSurface] = []
+        for segment in stored_segments:
+            result_region_id = segment["result_region_id"]
+            if result_region_id in matched:
+                match_count, thumb_url = matched[result_region_id]
+                status: str = "matched"
+            else:
+                match_count, thumb_url = 0, None
+                status = "matching" if run.stage == "matching" else "pending"
+            surfaces.append(
+                ProgressSurface(
+                    result_region_id=result_region_id,
+                    label=segment["label"],
+                    box_xyxy=segment["box_xyxy"],
+                    score=segment["score"],
+                    status=status,
+                    match_count=match_count,
+                    thumb_url=thumb_url,
+                )
+            )
+
+        return SearchRunProgress(
+            stage=run.stage,
+            intent=run.intent_summary,
+            planned_targets=planned_targets,
+            surfaces=surfaces,
+            image_width=run.image_width,
+            image_height=run.image_height,
+        )
+
     def complete_run(
         self, *, run_id: UUID, image_width: int, image_height: int
     ) -> MaterialSearchRun:
@@ -181,6 +317,7 @@ class PostgresSearchRunRepository(SearchRunRepository):
             """
             update material_search_runs
             set status = 'completed',
+                stage = 'complete',
                 error = null,
                 image_width = %s,
                 image_height = %s
@@ -199,6 +336,7 @@ class PostgresSearchRunRepository(SearchRunRepository):
             """
             update material_search_runs
             set status = 'failed',
+                stage = 'failed',
                 error = %s
             where id = %s
             returning *
@@ -329,7 +467,7 @@ class PostgresSearchRunRepository(SearchRunRepository):
         ).fetchall()
 
         regions = [self._region_match_set(row) for row in region_rows]
-        plan = self._get_run_plan(run_id)
+        plan = self._get_run_plan(run_id, intent_summary=run.intent_summary)
         return SegmentMatchResponse(
             run_id=run.id,
             prompt=run.prompt,
@@ -339,7 +477,9 @@ class PostgresSearchRunRepository(SearchRunRepository):
             regions=regions,
         )
 
-    def _get_run_plan(self, run_id: UUID) -> MaterialSearchPlan | None:
+    def _get_run_plan(
+        self, run_id: UUID, *, intent_summary: str | None = None
+    ) -> MaterialSearchPlan | None:
         rows = self.conn.execute(
             """
             select *
@@ -352,7 +492,7 @@ class PostgresSearchRunRepository(SearchRunRepository):
         if not rows:
             return None
         return MaterialSearchPlan(
-            user_intent_summary="Planned material targets",
+            user_intent_summary=intent_summary or "Planned material targets",
             avoid=rows[0]["avoid"] or [],
             targets=[
                 PlannedMaterialTarget(
