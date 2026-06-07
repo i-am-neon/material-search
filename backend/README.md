@@ -118,6 +118,21 @@ flyctl deploy
 
 ## Run
 
+Run the full local development stack from the repo root:
+
+```bash
+scripts/dev.sh
+```
+
+This starts FastAPI, the Dramatiq worker, and the Vite frontend. The backend
+loads `backend/.env`, so the local stack still talks to the deployed Supabase,
+Modal, Gemini, and Redis services configured there.
+
+Use `scripts/dev.sh --no-worker` only for API/frontend routes that do not depend
+on queued `/search/runs` jobs.
+
+To run processes manually:
+
 ```bash
 uvicorn app.main:app --reload
 dramatiq app.workers.catalog_indexing app.workers.search_runs
