@@ -185,6 +185,22 @@ and fails unless the configured endpoint returns at least one region. The manual
 `Smoke SAM3` GitHub Action runs the same command using the `SAM3_SERVICE_URL`
 repository secret.
 
+## Demo Modal warmup
+
+Warm both Modal model containers shortly before recording a demo:
+
+```bash
+scripts/warm-modal-services.sh
+```
+
+The warmup makes real, minimal inference requests to SAM3 and SigLIP, then
+prints timing and compact response summaries. Use repeats if you want to keep
+containers warm while setting up the screen recorder:
+
+```bash
+scripts/warm-modal-services.sh --repeat 3 --interval-seconds 45
+```
+
 ## Production segment-match smoke
 
 After the catalog has at least one indexed embedding, run the combined real
