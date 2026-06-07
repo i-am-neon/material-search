@@ -9,12 +9,20 @@ class RegionMatcher:
         self.embedding_client = embedding_client
 
     def match_region(self, request: RegionMatchRequest) -> RegionMatchSet:
-        embedding = self.embedding_client.embed_image(
+        embedding = self.embed_region(request)
+        return self.match_embedding(request, embedding)
+
+    def embed_region(self, request: RegionMatchRequest) -> ImageEmbedding:
+        return self.embedding_client.embed_image(
             image_object_key=request.crop_object_key,
             image_url=str(request.crop_url) if request.crop_url else None,
             model_id=request.model_id,
             dimensions=request.dimensions,
         )
+
+    def match_embedding(
+        self, request: RegionMatchRequest, embedding: ImageEmbedding
+    ) -> RegionMatchSet:
         _validate_embedding(embedding, request)
 
         matches = self.repository.search_by_embedding(

@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from threading import Barrier, Lock
 from uuid import UUID, uuid4
 
 import pytest
@@ -125,6 +126,78 @@ class FailingSam3Client:
         raise RuntimeError("SAM3 unavailable")
 
 
+class BarrierSam3Client:
+    def __init__(self, expected_calls: int):
+        self.barrier = Barrier(expected_calls, timeout=1.0)
+        self.calls: list[dict] = []
+        self.lock = Lock()
+
+    def segment_image(
+        self,
+        *,
+        prompt: str,
+        image_object_key: str | None = None,
+        image_url: str | None = None,
+        confidence_threshold: float = 0.5,
+        max_regions: int = 20,
+        include_masks: bool = False,
+    ) -> SegmentationResult:
+        with self.lock:
+            self.calls.append(
+                {
+                    "prompt": prompt,
+                    "image_object_key": image_object_key,
+                    "image_url": image_url,
+                    "confidence_threshold": confidence_threshold,
+                    "max_regions": max_regions,
+                    "include_masks": include_masks,
+                }
+            )
+        self.barrier.wait()
+        return SegmentationResult(
+            model_id="facebook/sam3",
+            image_width=640,
+            image_height=480,
+            prompt=prompt,
+            regions=[
+                SegmentationRegion(
+                    id="sam3_region_0",
+                    prompt=prompt,
+                    score=0.91,
+                    box_xyxy=[10.0, 20.0, 110.0, 120.0],
+                )
+            ],
+        )
+
+
+class MultiRegionSam3Client:
+    def segment_image(
+        self,
+        *,
+        prompt: str,
+        image_object_key: str | None = None,
+        image_url: str | None = None,
+        confidence_threshold: float = 0.5,
+        max_regions: int = 20,
+        include_masks: bool = False,
+    ) -> SegmentationResult:
+        return SegmentationResult(
+            model_id="facebook/sam3",
+            image_width=640,
+            image_height=480,
+            prompt=prompt,
+            regions=[
+                SegmentationRegion(
+                    id=f"sam3_region_{index}",
+                    prompt=prompt,
+                    score=0.91,
+                    box_xyxy=[10.0 + index, 20.0, 110.0 + index, 120.0],
+                )
+                for index in range(min(2, max_regions))
+            ],
+        )
+
+
 class FakeArtifactStore:
     def __init__(self):
         self.calls: list[dict] = []
@@ -172,6 +245,32 @@ class FakeEmbeddingClient:
                 "dimensions": dimensions,
             }
         )
+        return ImageEmbedding(
+            model_id=model_id,
+            dimensions=dimensions,
+            embedding=[0.2] * dimensions,
+        )
+
+
+class BarrierEmbeddingClient(FakeEmbeddingClient):
+    def __init__(self, expected_calls: int):
+        super().__init__()
+        self.barrier = Barrier(expected_calls, timeout=1.0)
+        self.lock = Lock()
+
+    def embed_image(
+        self, *, image_object_key: str, image_url: str | None, model_id: str, dimensions: int
+    ) -> ImageEmbedding:
+        with self.lock:
+            self.calls.append(
+                {
+                    "image_object_key": image_object_key,
+                    "image_url": image_url,
+                    "model_id": model_id,
+                    "dimensions": dimensions,
+                }
+            )
+        self.barrier.wait()
         return ImageEmbedding(
             model_id=model_id,
             dimensions=dimensions,
@@ -503,17 +602,77 @@ def test_segment_catalog_match_service_uses_target_scoped_region_ids_for_duplica
         "upholstery__sam3_region_0",
         "floor__sam3_region_0",
     ]
-    assert [call["region_id"] for call in artifact_store.calls] == [
-        "upholstery__sam3_region_0",
+    assert sorted(call["region_id"] for call in artifact_store.calls) == [
         "floor__sam3_region_0",
+        "upholstery__sam3_region_0",
     ]
-    assert [call["image_object_key"] for call in embedding_client.calls] == [
-        f"runs/{response.run_id}/regions/upholstery__sam3_region_0/crop.jpg",
+    assert sorted(call["image_object_key"] for call in embedding_client.calls) == [
         f"runs/{response.run_id}/regions/floor__sam3_region_0/crop.jpg",
+        f"runs/{response.run_id}/regions/upholstery__sam3_region_0/crop.jpg",
     ]
     assert [region.region.id for region in response.regions] == [
         "sam3_region_0",
         "sam3_region_0",
+    ]
+
+
+def test_segment_catalog_match_service_segments_planned_targets_concurrently():
+    sam3_client = BarrierSam3Client(expected_calls=2)
+
+    response = SegmentCatalogMatchService(
+        sam3_client=sam3_client,
+        planner_client=MultiTargetPlannerClient(),
+        artifact_store=FakeArtifactStore(),
+        embedding_client=FakeEmbeddingClient(),
+        catalog_repository=FakeCatalogRepository(),
+    ).segment_and_match(
+        SegmentMatchRequest(
+            run_id=uuid4(),
+            image_object_key="uploads/room.jpg",
+            prompt="upholstery and floor",
+            max_regions=2,
+            model_id="test-model",
+            dimensions=3,
+        )
+    )
+
+    assert sorted(call["prompt"] for call in sam3_client.calls) == [
+        "stone floor",
+        "upholstery",
+    ]
+    assert [region.result_region_id for region in response.regions] == [
+        "upholstery__sam3_region_0",
+        "floor__sam3_region_0",
+    ]
+
+
+def test_segment_catalog_match_service_prepares_region_matches_concurrently():
+    embedding_client = BarrierEmbeddingClient(expected_calls=2)
+
+    response = SegmentCatalogMatchService(
+        sam3_client=MultiRegionSam3Client(),
+        planner_client=FakePlannerClient(),
+        artifact_store=FakeArtifactStore(),
+        embedding_client=embedding_client,
+        catalog_repository=FakeCatalogRepository(),
+    ).segment_and_match(
+        SegmentMatchRequest(
+            run_id=uuid4(),
+            image_object_key="uploads/room.jpg",
+            prompt="upholstery",
+            max_regions=2,
+            model_id="test-model",
+            dimensions=3,
+        )
+    )
+
+    assert sorted(call["image_object_key"] for call in embedding_client.calls) == [
+        f"runs/{response.run_id}/regions/upholstery__sam3_region_0/crop.jpg",
+        f"runs/{response.run_id}/regions/upholstery__sam3_region_1/crop.jpg",
+    ]
+    assert [region.result_region_id for region in response.regions] == [
+        "upholstery__sam3_region_0",
+        "upholstery__sam3_region_1",
     ]
 
 
