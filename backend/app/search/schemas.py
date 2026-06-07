@@ -39,6 +39,7 @@ class RegionMatchRequest(BaseModel):
     region_id: str = Field(min_length=1)
     crop_object_key: str = Field(min_length=1, max_length=1024)
     crop_url: HttpUrl | None = None
+    material_filter_hint: str | None = Field(default=None, max_length=400)
     model_id: str = DEFAULT_EMBEDDING_MODEL_ID
     dimensions: int = DEFAULT_EMBEDDING_DIMENSIONS
     limit: int = Field(default=12, ge=1, le=100)

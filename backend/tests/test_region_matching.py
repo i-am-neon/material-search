@@ -232,6 +232,80 @@ def test_region_matching_eval_ranks_nearest_catalog_material():
     assert result.matches[0].match.similarity > result.matches[1].match.similarity
 
 
+def test_match_region_filters_visible_matches_by_material_hint():
+    stone = CatalogMatch(
+        item=make_item(name="Honed Limestone", material_family="stone"),
+        model_id="test-model",
+        similarity=0.97,
+    )
+    wood = CatalogMatch(
+        item=make_item(name="White Oak", material_family="wood"),
+        model_id="test-model",
+        similarity=0.94,
+    )
+    carpet = CatalogMatch(
+        item=make_item(name="Hard Truth - Steel", material_family="carpet"),
+        model_id="test-model",
+        similarity=0.82,
+    )
+    entry_carpet = CatalogMatch(
+        item=make_item(name="Pedigrid - Graphite", material_family="entry_carpet"),
+        model_id="test-model",
+        similarity=0.8,
+    )
+    repository = RecordingCatalogRepository([stone, wood, carpet, entry_carpet])
+    embedding_client = RecordingEmbeddingClient(
+        ImageEmbedding(model_id="test-model", dimensions=3, embedding=[0.1, 0.2, 0.3])
+    )
+
+    result = RegionMatcher(repository, embedding_client).match_region(
+        RegionMatchRequest(
+            region_id="floor__sam3-region-1",
+            crop_object_key="runs/run-1/regions/floor/crop.jpg",
+            material_filter_hint="textile carpet floor",
+            model_id="test-model",
+            dimensions=3,
+            limit=2,
+        )
+    )
+
+    assert repository.search_calls[0]["limit"] == 8
+    assert [(ranked.rank, ranked.match.item.name) for ranked in result.matches] == [
+        (1, "Hard Truth - Steel"),
+        (2, "Pedigrid - Graphite"),
+    ]
+
+
+def test_match_region_falls_back_to_nearest_neighbors_when_category_filter_has_no_hits():
+    stone = CatalogMatch(
+        item=make_item(name="Honed Limestone", material_family="stone"),
+        model_id="test-model",
+        similarity=0.97,
+    )
+    wood = CatalogMatch(
+        item=make_item(name="White Oak", material_family="wood"),
+        model_id="test-model",
+        similarity=0.94,
+    )
+    repository = RecordingCatalogRepository([stone, wood])
+    embedding_client = RecordingEmbeddingClient(
+        ImageEmbedding(model_id="test-model", dimensions=3, embedding=[0.1, 0.2, 0.3])
+    )
+
+    result = RegionMatcher(repository, embedding_client).match_region(
+        RegionMatchRequest(
+            region_id="floor__sam3-region-1",
+            crop_object_key="runs/run-1/regions/floor/crop.jpg",
+            material_filter_hint="carpet floor",
+            model_id="test-model",
+            dimensions=3,
+            limit=1,
+        )
+    )
+
+    assert [ranked.match.item.name for ranked in result.matches] == ["Honed Limestone"]
+
+
 def test_match_region_returns_empty_matches_when_catalog_has_no_hits():
     embedding_client = RecordingEmbeddingClient(
         ImageEmbedding(model_id="test-model", dimensions=3, embedding=[0.1, 0.2, 0.3])

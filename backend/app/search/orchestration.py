@@ -174,6 +174,7 @@ class MaterialSearchGraph:
                         region_id=result_region_id,
                         crop_object_key=artifact.object_key,
                         crop_url=artifact.signed_url,
+                        material_filter_hint=_material_filter_hint(target),
                         model_id=request.model_id,
                         dimensions=request.dimensions,
                         limit=request.matches_per_region,
@@ -236,3 +237,11 @@ def _redact_url_match(match: re.Match[str]) -> str:
     if not parsed.query:
         return url
     return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", parsed.fragment))
+
+
+def _material_filter_hint(target: PlannedMaterialTarget) -> str:
+    return " ".join(
+        value
+        for value in (target.material_family_hint, target.label, target.sam3_prompt)
+        if value
+    )

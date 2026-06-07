@@ -1,5 +1,6 @@
 import json
 import re
+from typing import Any
 
 import httpx
 
@@ -7,6 +8,39 @@ from app.catalog.repository import CatalogRepository
 from app.catalog.schemas import CatalogItem, CatalogMatch
 from app.model_services.embeddings import EmbeddingClient, ImageEmbedding
 from app.search.schemas import RankedRegionMatch, RegionMatchRequest, RegionMatchSet
+
+_CATEGORY_CANDIDATE_MULTIPLIER = 4
+
+_CATEGORY_ALIASES: tuple[tuple[set[str], set[str]], ...] = (
+    (
+        {"carpet", "rug", "broadloom"},
+        {"carpet", "entry carpet", "modular carpet", "entrance carpet", "rug", "broadloom"},
+    ),
+    (
+        {"shade", "window covering", "window treatment"},
+        {"shade textile", "window covering", "shade fabric"},
+    ),
+    (
+        {"upholstery", "textile", "fabric", "woven"},
+        {"textile", "upholstery", "woven", "fabric"},
+    ),
+    (
+        {"tile", "porcelain", "ceramic"},
+        {"tile", "porcelain", "ceramic"},
+    ),
+    (
+        {"wood", "hardwood", "oak", "laminate", "woodgrain", "veneer"},
+        {"wood", "hardwood", "oak", "laminate", "woodgrain", "veneer", "high pressure laminate"},
+    ),
+    (
+        {"stone", "marble", "granite", "limestone", "travertine"},
+        {"stone", "marble", "granite", "limestone", "travertine"},
+    ),
+    (
+        {"wallcovering", "wall covering", "wallpaper"},
+        {"wallcovering", "wall covering", "wallpaper"},
+    ),
+)
 
 
 class RegionMatcher:
@@ -17,6 +51,12 @@ class RegionMatcher:
     def match_region(self, request: RegionMatchRequest) -> RegionMatchSet:
         model_id = request.model_id
         dimensions = request.dimensions
+        category_terms = _category_terms_for_hint(request.material_filter_hint)
+        search_limit = (
+            min(100, request.limit * _CATEGORY_CANDIDATE_MULTIPLIER)
+            if category_terms
+            else request.limit
+        )
         try:
             embedding = self.embedding_client.embed_image(
                 image_object_key=request.crop_object_key,
@@ -30,7 +70,7 @@ class RegionMatcher:
             matches = self.repository.search_by_embedding(
                 embedding=embedding.embedding,
                 model_id=embedding.model_id,
-                limit=request.limit,
+                limit=search_limit,
                 min_similarity=request.min_similarity,
             )
         except httpx.HTTPStatusError as exc:
@@ -39,7 +79,9 @@ class RegionMatcher:
             matches = _fallback_catalog_matches(
                 repository=self.repository,
                 request=request,
+                limit=search_limit,
             )
+        matches = _filter_matches_by_category(matches, category_terms)[: request.limit]
         return RegionMatchSet(
             region_id=request.region_id,
             crop_object_key=request.crop_object_key,
@@ -51,6 +93,46 @@ class RegionMatcher:
                 for rank, match in enumerate(matches, start=1)
             ],
         )
+
+
+def _filter_matches_by_category(
+    matches: list[CatalogMatch], category_terms: set[str] | None
+) -> list[CatalogMatch]:
+    if not category_terms:
+        return matches
+
+    filtered = [match for match in matches if _catalog_item_matches(match.item, category_terms)]
+    return filtered or matches
+
+
+def _category_terms_for_hint(hint: str | None) -> set[str] | None:
+    if not hint:
+        return None
+
+    normalized_hint = _normalize_term(hint)
+    for hint_terms, category_terms in _CATEGORY_ALIASES:
+        if any(term in normalized_hint for term in hint_terms):
+            return category_terms
+    return None
+
+
+def _catalog_item_matches(item: CatalogItem, category_terms: set[str]) -> bool:
+    item_terms = {_normalize_term(item.material_family)}
+    item_terms.update(_metadata_material_terms(item.metadata))
+    return any(term in category_terms for term in item_terms)
+
+
+def _metadata_material_terms(metadata: dict[str, Any]) -> set[str]:
+    values = metadata.get("materials") or []
+    if isinstance(values, str):
+        values = [values]
+    if not isinstance(values, list):
+        return set()
+    return {_normalize_term(value) for value in values if isinstance(value, str)}
+
+
+def _normalize_term(value: str | None) -> str:
+    return (value or "").lower().replace("_", " ").replace("-", " ").strip()
 
 
 def _validate_embedding(embedding: ImageEmbedding, request: RegionMatchRequest) -> None:
@@ -72,9 +154,9 @@ def _validate_embedding(embedding: ImageEmbedding, request: RegionMatchRequest) 
 
 
 def _fallback_catalog_matches(
-    *, repository: CatalogRepository, request: RegionMatchRequest
+    *, repository: CatalogRepository, request: RegionMatchRequest, limit: int
 ) -> list[CatalogMatch]:
-    items = repository.list_items(limit=max(request.limit * 4, request.limit), offset=0)
+    items = repository.list_items(limit=max(limit * 4, limit), offset=0)
     terms = {
         term
         for term in re.split(r"[^a-z0-9]+", request.region_id.lower())
@@ -92,7 +174,7 @@ def _fallback_catalog_matches(
         match
         for match in sorted(scored, key=lambda match: match.similarity, reverse=True)
         if match.similarity >= request.min_similarity
-    ][: request.limit]
+    ][:limit]
 
 
 def _catalog_keyword_score(*, item: CatalogItem, terms: set[str]) -> float:

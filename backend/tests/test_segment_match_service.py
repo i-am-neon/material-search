@@ -441,7 +441,7 @@ def test_segment_catalog_match_service_crops_embeds_and_matches_regions():
             "dimensions": 3,
         }
     ]
-    assert repository.search_calls[0]["limit"] == 2
+    assert repository.search_calls[0]["limit"] == 8
     assert repository.search_calls[0]["min_similarity"] == 0.5
     assert search_repository.create_run_calls[0].run_id == run_id
     assert search_repository.create_region_calls == [
