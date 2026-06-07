@@ -129,25 +129,39 @@ Use Material Bank's verbs: **search → sample → specify**. Labels: "Sample ·
   micro-interactions.
 - Match cards: subtle lift on hover.
 
-## 6. Component Architecture (mapping to existing code)
+## 6. Component Architecture (clean rebuild of the view layer)
 
-`SearchWorkbench.tsx` remains the orchestrator and keeps its state machine
-(`scenario`, `selectedRegionId`, `cartIds`, `prompt`, file/preview, `runResult`) and the
-`handleRun` upload→create→poll flow **unchanged**. Only the presentation layer is re-composed:
+The frontend view layer is **not sacred — it is rebuilt from scratch** for this overhaul. Only the
+genuinely valuable, well-tested logic is retained; everything in `components/` and `styles.css` is
+fair game to replace.
 
-| Current | Becomes | Notes |
-|---------|---------|-------|
-| `SearchSetup` (page layout) | `IntakeScreen` | Phase 1; merges dropzone + prompt in one card |
-| `SearchSetup` (rail layout) + `RunTimeline` | folded into the analysis reveal / studio sub-header | the standalone left-rail intake and the separate timeline panel go away |
-| `RegionCanvas` | `ReferenceStage` | persistent hero image + region overlays; gains the on-image selection emphasis |
-| (new) | `SurfaceSelector` | pills bound to `selectedRegionId` |
-| `RegionInspector` + `ProductMatchCard` | `MatchesGallery` + `MatchCard` | roomier grid; card redesigned per §4.3 |
-| `cart` portion of `RegionInspector` | `SpecificationTray` | sticky footer |
-| `workspace-grid` (3-col) | `StudioLayout` (2-col + sticky tray) | replaces the dense grid |
+**Retained (the data/logic layer):**
+- `api.ts` — the upload / create-run / poll client, unchanged.
+- `types.ts` — domain types (`MaterialRegion`, `ProductMatch`, etc.), adjusted only if a new view
+  genuinely needs it.
+- The run lifecycle logic currently in `SearchWorkbench.tsx` — the `scenario` state machine, the
+  `handleRun` upload→create→poll flow, and the `mapRunRegions` / `mapRunMatches` adapters. This
+  logic is sound; it will be **lifted into a hook** (e.g. `useSearchRun`) rather than left tangled
+  in a component, so the new view components stay presentational.
 
-`styles.css` is rewritten around the new tokens and components. The `/catalog` route and
-`CatalogPage` are out of scope for this overhaul but should inherit the new tokens for consistency
-(low-effort token swap only).
+**Rebuilt (the presentation layer):** new components, named for the new model:
+
+| New component | Responsibility | Replaces |
+|---------------|----------------|----------|
+| `IntakeScreen` | Phase 1: dropzone + intent prompt in one card | `SearchSetup` (page) |
+| `AnalysisReveal` | on-image segmentation reveal during `planning`/`matching`, inline error on `failed` | `RunTimeline` + rail `SearchSetup` |
+| `StudioLayout` | the 2-column + sticky-tray shell for `complete` | `workspace-grid` |
+| `ReferenceStage` | persistent hero image + region overlays + on-image selection | `RegionCanvas` |
+| `SurfaceSelector` | surface pills bound to `selectedRegionId` | (new) |
+| `MatchesGallery` / `MatchCard` | roomy match grid + redesigned card (§4.3) | `RegionInspector` + `ProductMatchCard` |
+| `SpecificationTray` | sticky collected-samples footer | cart portion of `RegionInspector` |
+
+`styles.css` is rewritten around the new tokens and components (old forest-green tokens removed).
+A thin top-level component owns the phase switch (`empty`→Intake, `planning`/`matching`→Reveal,
+`complete`→Studio) driven by the retained `useSearchRun` hook.
+
+The `/catalog` route and `CatalogPage` are out of scope for the overhaul but should inherit the new
+tokens for visual consistency (low-effort token swap only).
 
 State-to-phase mapping (no new states needed):
 - `empty` → IntakeScreen

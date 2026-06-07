@@ -1,15 +1,19 @@
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 import re
-from typing import TypedDict
+from typing import TypedDict, TypeVar
 from urllib.parse import urlsplit, urlunsplit
 
+import httpx
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel
 
 from app.catalog.repository import CatalogRepository
-from app.model_services.embeddings import EmbeddingClient
+from app.model_services.embeddings import EmbeddingClient, ImageEmbedding
 from app.model_services.planning import MaterialPlannerClient
-from app.model_services.segmentation import Sam3Client, SegmentationResult
-from app.search.artifacts import RegionArtifactStore
+from app.model_services.segmentation import Sam3Client, SegmentationRegion, SegmentationResult
+from app.search.artifacts import RegionArtifact, RegionArtifactStore
 from app.search.matching import RegionMatcher
 from app.search.repository import SearchRunRepository
 from app.search.schemas import (
@@ -22,10 +26,37 @@ from app.search.schemas import (
     build_result_region_id,
 )
 
+_MAX_SEGMENTATION_WORKERS = 5
+_MAX_REGION_MATCH_WORKERS = 8
+
+_T = TypeVar("_T")
+_R = TypeVar("_R")
+
 
 class PlannedSegmentation(BaseModel):
     target: PlannedMaterialTarget
     segmentation: SegmentationResult
+
+
+@dataclass(frozen=True)
+class SegmentationWork:
+    target: PlannedMaterialTarget
+    max_regions: int
+
+
+@dataclass(frozen=True)
+class RegionMatchWork:
+    target: PlannedMaterialTarget
+    segmentation: SegmentationResult
+    region: SegmentationRegion
+    result_region_id: str
+
+
+@dataclass(frozen=True)
+class PreparedRegionMatch:
+    work: RegionMatchWork
+    artifact: RegionArtifact
+    embedding: ImageEmbedding | None
 
 
 class SearchGraphState(TypedDict, total=False):
@@ -117,26 +148,36 @@ class MaterialSearchGraph:
             reason = plan.unsupported_reason or "The request is not a material search"
             raise RuntimeError(f"Material search planner declined request: {reason}")
 
-        segmentations: list[PlannedSegmentation] = []
-        remaining_regions = request.max_regions
+        work_items: list[SegmentationWork] = []
+        remaining_region_budget = request.max_regions
+        for target in sorted(plan.targets, key=lambda item: item.priority):
+            if remaining_region_budget <= 0:
+                break
+            target_max_regions = min(target.max_regions, remaining_region_budget)
+            work_items.append(SegmentationWork(target=target, max_regions=target_max_regions))
+            remaining_region_budget -= target_max_regions
+
+        segmentations = _run_ordered_in_parallel(
+            work_items,
+            lambda work: PlannedSegmentation(
+                target=work.target,
+                segmentation=self.sam3_client.segment_image(
+                    prompt=work.target.sam3_prompt,
+                    image_object_key=request.image_object_key,
+                    image_url=str(request.image_url) if request.image_url else None,
+                    confidence_threshold=request.confidence_threshold,
+                    max_regions=work.max_regions,
+                    include_masks=request.include_masks,
+                ),
+            ),
+            max_workers=_MAX_SEGMENTATION_WORKERS,
+        )
+
         image_width: int | None = None
         image_height: int | None = None
-        for target in sorted(plan.targets, key=lambda item: item.priority):
-            if remaining_regions <= 0:
-                break
-            target_max_regions = min(target.max_regions, remaining_regions)
-            segmentation = self.sam3_client.segment_image(
-                prompt=target.sam3_prompt,
-                image_object_key=request.image_object_key,
-                image_url=str(request.image_url) if request.image_url else None,
-                confidence_threshold=request.confidence_threshold,
-                max_regions=target_max_regions,
-                include_masks=request.include_masks,
-            )
-            image_width = image_width or segmentation.image_width
-            image_height = image_height or segmentation.image_height
-            segmentations.append(PlannedSegmentation(target=target, segmentation=segmentation))
-            remaining_regions -= len(segmentation.regions)
+        for planned in segmentations:
+            image_width = image_width or planned.segmentation.image_width
+            image_height = image_height or planned.segmentation.image_height
 
         if image_width is None or image_height is None:
             raise RuntimeError("Material search plan did not produce any segmentation requests")
@@ -147,11 +188,92 @@ class MaterialSearchGraph:
             "image_height": image_height,
         }
 
+    def _prepare_region_match(
+        self, *, request: SegmentMatchRequest, work: RegionMatchWork
+    ) -> PreparedRegionMatch:
+        artifact_region = work.region.model_copy(update={"id": work.result_region_id})
+        artifact = self.artifact_store.create_region_crop(
+            run_id=str(request.run_id),
+            source_image_object_key=request.image_object_key,
+            source_image_url=str(request.image_url) if request.image_url else None,
+            region=artifact_region,
+            image_width=work.segmentation.image_width,
+            image_height=work.segmentation.image_height,
+        )
+        try:
+            embedding = self.region_matcher.embed_region(
+                RegionMatchRequest(
+                    region_id=work.result_region_id,
+                    crop_object_key=artifact.object_key,
+                    crop_url=artifact.signed_url,
+                    material_filter_hint=_material_filter_hint(work.target),
+                    model_id=request.model_id,
+                    dimensions=request.dimensions,
+                    limit=request.matches_per_region,
+                    min_similarity=request.min_similarity,
+                )
+            )
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code != 429:
+                raise
+            embedding = None
+        return PreparedRegionMatch(work=work, artifact=artifact, embedding=embedding)
+
+    def _match_prepared_region(
+        self, *, request: SegmentMatchRequest, prepared: PreparedRegionMatch
+    ) -> SegmentRegionMatchSet:
+        work = prepared.work
+        target = work.target
+        region = work.region
+        artifact = prepared.artifact
+        match_request = RegionMatchRequest(
+            region_id=work.result_region_id,
+            crop_object_key=artifact.object_key,
+            crop_url=artifact.signed_url,
+            material_filter_hint=_material_filter_hint(target),
+            model_id=request.model_id,
+            dimensions=request.dimensions,
+            limit=request.matches_per_region,
+            min_similarity=request.min_similarity,
+        )
+        if prepared.embedding is None:
+            match_set = self.region_matcher.match_fallback(match_request)
+        else:
+            match_set = self.region_matcher.match_embedding(match_request, prepared.embedding)
+        if self.search_run_repository is not None:
+            persisted_region = self.search_run_repository.create_region(
+                run_id=request.run_id,
+                target=target,
+                region=region,
+                artifact=artifact,
+                embedding_model_id=match_set.model_id,
+                embedding_dimensions=match_set.dimensions,
+            )
+            self.search_run_repository.replace_region_matches(
+                run_id=request.run_id,
+                region_id=persisted_region.id,
+                matches=match_set.matches,
+            )
+
+        return SegmentRegionMatchSet(
+            result_region_id=work.result_region_id,
+            region=region,
+            target_id=target.target_id,
+            target_label=target.label,
+            crop_object_key=artifact.object_key,
+            crop_url=artifact.signed_url,
+            crop_width=artifact.width,
+            crop_height=artifact.height,
+            model_id=match_set.model_id,
+            dimensions=match_set.dimensions,
+            matches=match_set.matches,
+        )
+
     def _match_regions(self, state: SearchGraphState) -> SearchGraphState:
         request = state["request"]
         segmentations = state["segmentations"]
 
-        region_results: list[SegmentRegionMatchSet] = []
+        work_items: list[RegionMatchWork] = []
         for planned in segmentations:
             target = planned.target
             segmentation = planned.segmentation
@@ -160,58 +282,27 @@ class MaterialSearchGraph:
                     target_id=target.target_id,
                     source_region_id=region.id,
                 )
-                artifact_region = region.model_copy(update={"id": result_region_id})
-                artifact = self.artifact_store.create_region_crop(
-                    run_id=str(request.run_id),
-                    source_image_object_key=request.image_object_key,
-                    source_image_url=str(request.image_url) if request.image_url else None,
-                    region=artifact_region,
-                    image_width=segmentation.image_width,
-                    image_height=segmentation.image_height,
-                )
-                match_set = self.region_matcher.match_region(
-                    RegionMatchRequest(
-                        region_id=result_region_id,
-                        crop_object_key=artifact.object_key,
-                        crop_url=artifact.signed_url,
-                        material_filter_hint=_material_filter_hint(target),
-                        model_id=request.model_id,
-                        dimensions=request.dimensions,
-                        limit=request.matches_per_region,
-                        min_similarity=request.min_similarity,
-                    )
-                )
-                if self.search_run_repository is not None:
-                    persisted_region = self.search_run_repository.create_region(
-                        run_id=request.run_id,
+                work_items.append(
+                    RegionMatchWork(
                         target=target,
+                        segmentation=segmentation,
                         region=region,
-                        artifact=artifact,
-                        embedding_model_id=match_set.model_id,
-                        embedding_dimensions=match_set.dimensions,
-                    )
-                    self.search_run_repository.replace_region_matches(
-                        run_id=request.run_id,
-                        region_id=persisted_region.id,
-                        matches=match_set.matches,
-                    )
-
-                region_results.append(
-                    SegmentRegionMatchSet(
                         result_region_id=result_region_id,
-                        region=region,
-                        target_id=target.target_id,
-                        target_label=target.label,
-                        crop_object_key=artifact.object_key,
-                        crop_url=artifact.signed_url,
-                        crop_width=artifact.width,
-                        crop_height=artifact.height,
-                        model_id=match_set.model_id,
-                        dimensions=match_set.dimensions,
-                        matches=match_set.matches,
                     )
                 )
-        return {"regions": region_results}
+
+        prepared_matches = _run_ordered_in_parallel(
+            work_items,
+            lambda work: self._prepare_region_match(request=request, work=work),
+            max_workers=_MAX_REGION_MATCH_WORKERS,
+        )
+
+        return {
+            "regions": [
+                self._match_prepared_region(request=request, prepared=prepared)
+                for prepared in prepared_matches
+            ]
+        }
 
     def _complete_run(self, state: SearchGraphState) -> SearchGraphState:
         request = state["request"]
@@ -245,3 +336,14 @@ def _material_filter_hint(target: PlannedMaterialTarget) -> str:
         for value in (target.material_family_hint, target.label, target.sam3_prompt)
         if value
     )
+
+
+def _run_ordered_in_parallel(
+    items: list[_T], fn: Callable[[_T], _R], *, max_workers: int
+) -> list[_R]:
+    if len(items) <= 1:
+        return [fn(item) for item in items]
+
+    with ThreadPoolExecutor(max_workers=min(len(items), max_workers)) as executor:
+        futures = [executor.submit(fn, item) for item in items]
+        return [future.result() for future in futures]

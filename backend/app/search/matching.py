@@ -49,24 +49,34 @@ class RegionMatcher:
         self.embedding_client = embedding_client
 
     def match_region(self, request: RegionMatchRequest) -> RegionMatchSet:
-        model_id = request.model_id
-        dimensions = request.dimensions
+        try:
+            embedding = self.embed_region(request)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code != 429:
+                raise
+            return self.match_fallback(request)
+        return self.match_embedding(request, embedding)
+
+    def embed_region(self, request: RegionMatchRequest) -> ImageEmbedding:
+        return self.embedding_client.embed_image(
+            image_object_key=request.crop_object_key,
+            image_url=str(request.crop_url) if request.crop_url else None,
+            model_id=request.model_id,
+            dimensions=request.dimensions,
+        )
+
+    def match_embedding(
+        self, request: RegionMatchRequest, embedding: ImageEmbedding
+    ) -> RegionMatchSet:
+        _validate_embedding(embedding, request)
+        model_id = embedding.model_id
+        dimensions = embedding.dimensions
         category_terms = _category_terms_for_hint(request.material_filter_hint)
-        search_limit = (
-            min(100, request.limit * _CATEGORY_CANDIDATE_MULTIPLIER)
-            if category_terms
-            else request.limit
+        search_limit = _search_limit_for_category_filter(
+            limit=request.limit,
+            category_terms=category_terms,
         )
         try:
-            embedding = self.embedding_client.embed_image(
-                image_object_key=request.crop_object_key,
-                image_url=str(request.crop_url) if request.crop_url else None,
-                model_id=request.model_id,
-                dimensions=request.dimensions,
-            )
-            _validate_embedding(embedding, request)
-            model_id = embedding.model_id
-            dimensions = embedding.dimensions
             matches = self.repository.search_by_embedding(
                 embedding=embedding.embedding,
                 model_id=embedding.model_id,
@@ -82,17 +92,55 @@ class RegionMatcher:
                 limit=search_limit,
             )
         matches = _filter_matches_by_category(matches, category_terms)[: request.limit]
-        return RegionMatchSet(
-            region_id=request.region_id,
-            crop_object_key=request.crop_object_key,
-            crop_url=request.crop_url,
+        return _build_match_set(
+            request=request,
             model_id=model_id,
             dimensions=dimensions,
-            matches=[
-                RankedRegionMatch(region_id=request.region_id, rank=rank, match=match)
-                for rank, match in enumerate(matches, start=1)
-            ],
+            matches=matches,
         )
+
+    def match_fallback(self, request: RegionMatchRequest) -> RegionMatchSet:
+        category_terms = _category_terms_for_hint(request.material_filter_hint)
+        search_limit = _search_limit_for_category_filter(
+            limit=request.limit,
+            category_terms=category_terms,
+        )
+        matches = _fallback_catalog_matches(
+            repository=self.repository,
+            request=request,
+            limit=search_limit,
+        )
+        matches = _filter_matches_by_category(matches, category_terms)[: request.limit]
+        return _build_match_set(
+            request=request,
+            model_id=request.model_id,
+            dimensions=request.dimensions,
+            matches=matches,
+        )
+
+
+def _build_match_set(
+    *, request: RegionMatchRequest, model_id: str, dimensions: int, matches: list[CatalogMatch]
+) -> RegionMatchSet:
+    return RegionMatchSet(
+        region_id=request.region_id,
+        crop_object_key=request.crop_object_key,
+        crop_url=request.crop_url,
+        model_id=model_id,
+        dimensions=dimensions,
+        matches=[
+            RankedRegionMatch(region_id=request.region_id, rank=rank, match=match)
+            for rank, match in enumerate(matches, start=1)
+        ],
+    )
+
+
+def _search_limit_for_category_filter(
+    *, limit: int, category_terms: set[str] | None
+) -> int:
+    if not category_terms:
+        return limit
+    return min(100, limit * _CATEGORY_CANDIDATE_MULTIPLIER)
 
 
 def _filter_matches_by_category(
