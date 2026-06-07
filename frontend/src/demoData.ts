@@ -1,7 +1,11 @@
-import catalogSeed from "../../data/catalog/material-bank-style-seed.json";
+import curatedCatalogSeed from "../../data/catalog/material-bank-public-demo-curated-seed.json";
+import starterCatalogSeed from "../../data/catalog/material-bank-style-seed.json";
 import type { CatalogSeedItem, MaterialRegion, ProductMatch } from "./types";
 
-export const catalogItems = catalogSeed.items as CatalogSeedItem[];
+const starterCatalogItems = starterCatalogSeed.items as CatalogSeedItem[];
+const curatedCatalogItems = curatedCatalogSeed.items as CatalogSeedItem[];
+
+export const catalogItems = dedupeCatalogItems([...curatedCatalogItems, ...starterCatalogItems]);
 
 export const materialFamilies = Array.from(
   new Set(catalogItems.map((item) => item.material_family ?? "uncategorized")),
@@ -9,6 +13,18 @@ export const materialFamilies = Array.from(
 
 export function formatFamily(family: string) {
   return family.replace(/_/g, " ");
+}
+
+function dedupeCatalogItems(items: CatalogSeedItem[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.image_object_key;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
 }
 
 const findCatalogItem = (manufacturer: string, nameIncludes: string) => {
@@ -153,4 +169,3 @@ export const matchesByRegion: Record<string, ProductMatch[]> = {
 
 export const defaultPrompt =
   "Find orderable materials that match the floor, walnut paneling, pale counter surface, and sage upholstery. Favor hospitality-grade finishes with quiet texture.";
-

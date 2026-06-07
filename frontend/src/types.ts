@@ -23,8 +23,12 @@ export type CatalogMetadata = {
   colorway?: string;
   collection?: string;
   image_kind?: string;
+  import_strategy?: string;
   materials?: string[];
   source_platform?: string;
+  source_category?: string;
+  source_category_group?: string;
+  source_rank?: number;
   source_url?: string;
   visual_tags?: string[];
 };

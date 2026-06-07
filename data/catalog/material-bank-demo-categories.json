@@ -1,0 +1,177 @@
+{
+  "source": "material_bank_public_sitemap",
+  "default_per_category": 50,
+  "categories": [
+    {
+      "group": "Materials",
+      "name": "Tile",
+      "taxonomy_path": ["Materials", "Tile"],
+      "material_family": "tile",
+      "aliases": [
+        "tile",
+        "ceramic",
+        "porcelain",
+        "terracotta",
+        "zellige",
+        "mosaic",
+        "backsplash",
+        "paver"
+      ]
+    },
+    {
+      "group": "Materials",
+      "name": "Paints",
+      "taxonomy_path": ["Materials", "Paints"],
+      "material_family": "paint",
+      "aliases": ["paint", "coating", "plaster", "limewash", "finish", "primer", "color"]
+    },
+    {
+      "group": "Materials",
+      "name": "Surfaces",
+      "taxonomy_path": ["Materials", "Surfaces"],
+      "material_family": "surface",
+      "aliases": [
+        "surface",
+        "countertop",
+        "slab",
+        "quartz",
+        "solid surface",
+        "laminate",
+        "veneer",
+        "porcelain slab"
+      ]
+    },
+    {
+      "group": "Materials",
+      "name": "Flooring",
+      "taxonomy_path": ["Materials", "Flooring"],
+      "material_family": "flooring",
+      "aliases": [
+        "flooring",
+        "floor",
+        "wood floor",
+        "hardwood",
+        "carpet",
+        "rug",
+        "plank",
+        "vinyl"
+      ]
+    },
+    {
+      "group": "Materials",
+      "name": "Textiles",
+      "taxonomy_path": ["Materials", "Textiles"],
+      "material_family": "textile",
+      "aliases": [
+        "textile",
+        "fabric",
+        "boucle",
+        "linen",
+        "velvet",
+        "upholstery",
+        "drapery",
+        "woven"
+      ]
+    },
+    {
+      "group": "Materials",
+      "name": "Wallcovering",
+      "taxonomy_path": ["Materials", "Wallcovering"],
+      "material_family": "wallcovering",
+      "aliases": [
+        "wallcovering",
+        "wall covering",
+        "wallpaper",
+        "mural",
+        "grasscloth",
+        "vinyl wallcovering"
+      ]
+    },
+    {
+      "group": "Materials",
+      "name": "Masonry & Stone",
+      "taxonomy_path": ["Materials", "Masonry & Stone"],
+      "material_family": "stone",
+      "aliases": [
+        "stone",
+        "marble",
+        "limestone",
+        "travertine",
+        "quartzite",
+        "granite",
+        "terrazzo",
+        "brick",
+        "masonry"
+      ]
+    },
+    {
+      "group": "Materials",
+      "name": "Paneling",
+      "taxonomy_path": ["Materials", "Paneling"],
+      "material_family": "paneling",
+      "aliases": ["panel", "paneling", "wood panel", "acoustic panel", "wall panel", "slat"]
+    },
+    {
+      "group": "FF&E",
+      "name": "Bathroom",
+      "taxonomy_path": ["FF&E", "Bathroom"],
+      "material_family": "bathroom",
+      "aliases": [
+        "bath",
+        "bathroom",
+        "vanity",
+        "faucet",
+        "sink",
+        "basin",
+        "tub",
+        "shower",
+        "toilet"
+      ]
+    },
+    {
+      "group": "FF&E",
+      "name": "Kitchen",
+      "taxonomy_path": ["FF&E", "Kitchen"],
+      "material_family": "kitchen",
+      "aliases": [
+        "kitchen",
+        "cabinet",
+        "cabinetry",
+        "countertop",
+        "sink",
+        "faucet",
+        "range",
+        "hood",
+        "appliance"
+      ]
+    },
+    {
+      "group": "FF&E",
+      "name": "Hardware",
+      "taxonomy_path": ["FF&E", "Hardware"],
+      "material_family": "hardware",
+      "aliases": ["hardware", "pull", "knob", "handle", "hinge", "lock", "latch", "brass"]
+    },
+    {
+      "group": "FF&E",
+      "name": "Lighting",
+      "taxonomy_path": ["FF&E", "Lighting"],
+      "material_family": "lighting",
+      "aliases": ["lighting", "light", "pendant", "sconce", "lamp", "chandelier", "fixture"]
+    },
+    {
+      "group": "FF&E",
+      "name": "Furniture",
+      "taxonomy_path": ["FF&E", "Furniture"],
+      "material_family": "furniture",
+      "aliases": ["furniture", "chair", "stool", "table", "sofa", "bench", "ottoman", "cabinet"]
+    },
+    {
+      "group": "FF&E",
+      "name": "Decor & Accessories",
+      "taxonomy_path": ["FF&E", "Decor & Accessories"],
+      "material_family": "decor",
+      "aliases": ["decor", "accessory", "accessories", "mirror", "vase", "basket", "rug", "art"]
+    }
+  ]
+}

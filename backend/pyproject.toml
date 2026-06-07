@@ -18,7 +18,10 @@ dependencies = [
 ]
 
 [project.scripts]
+catalog-build-gallery = "app.catalog.build_gallery:main"
+catalog-filter-manifest = "app.catalog.filter_manifest:main"
 catalog-index-missing = "app.catalog.index_missing:main"
+catalog-import-materialbank = "app.catalog.material_bank_import:main"
 catalog-load-seed = "app.catalog.load_seed:main"
 production-smoke-test = "app.search.production_smoke:main"
 sam3-smoke-test = "app.model_services.sam3_smoke:main"

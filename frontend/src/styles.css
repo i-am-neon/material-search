@@ -248,15 +248,22 @@ button { font-family: inherit; }
 .catalog-summary > div { display: flex; flex-direction: column; gap: 4px; }
 .catalog-summary strong { font-family: "Fraunces", serif; font-size: 22px; font-weight: 400; color: var(--ink); }
 
+.catalog-tools { display: grid; grid-template-columns: minmax(240px, 480px) 1fr; align-items: center; gap: 18px; padding: 18px 40px; border-bottom: 1px solid var(--line-2); }
+.catalog-tools p { margin: 0; color: var(--ink-2); font-size: 13px; }
+.catalog-search { min-height: 42px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink-3); padding: 0 12px; }
+.catalog-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 14px; }
+.catalog-search input::placeholder { color: var(--ink-3); }
+
 .catalog-filters { display: flex; flex-wrap: wrap; gap: 8px; padding: 18px 40px; border-bottom: 1px solid var(--line-2); }
-.catalog-filters button { background: var(--card); border: 1px solid var(--line); border-radius: 100px; padding: 6px 16px; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--ink-2); cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+.catalog-filters button { display: inline-flex; align-items: center; gap: 7px; background: var(--card); border: 1px solid var(--line); border-radius: 100px; padding: 6px 14px; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--ink-2); cursor: pointer; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+.catalog-filters button span { color: var(--ink-3); font-size: 11px; }
 .catalog-filters button:hover { border-color: var(--ink-3); color: var(--ink); }
 .catalog-filters button.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+.catalog-filters button.active span { color: rgba(255, 255, 255, 0.68); }
 
 .catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; padding: 28px 40px 60px; }
 
-.catalog-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow 0.18s, transform 0.18s; }
-.catalog-card:hover { transform: translateY(-3px); box-shadow: 0 18px 36px -20px rgba(0, 0, 0, 0.35); }
+.catalog-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
 
 /* ---- SAM3 playground ---- */
 .sam3-shell { background: var(--paper); }
@@ -296,8 +303,8 @@ button { font-family: inherit; }
   .sam3-grid, .sam3-overlay-row { grid-template-columns: 1fr; }
 }
 
-.catalog-swatch { display: block; aspect-ratio: 1; background: var(--paper-2); overflow: hidden; }
-.catalog-swatch img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.catalog-swatch { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; background: var(--paper-2); overflow: hidden; }
+.catalog-swatch img { width: 100%; height: 100%; object-fit: contain; display: block; }
 
 .catalog-card-body { padding: 12px 13px 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
 .catalog-card-body p { font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; margin: 0; }
@@ -310,6 +317,7 @@ button { font-family: inherit; }
 
 @media (max-width: 720px) {
   .catalog-summary { padding: 16px 20px; gap: 20px; }
+  .catalog-tools { grid-template-columns: 1fr; padding: 14px 20px; gap: 10px; }
   .catalog-filters { padding: 14px 20px; }
   .catalog-grid { padding: 20px 20px 40px; gap: 12px; }
 }

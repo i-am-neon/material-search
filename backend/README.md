@@ -242,3 +242,52 @@ Then smoke-test and drain missing embeddings:
 catalog-index-missing --batch-size 25 --max-items 1
 catalog-index-missing --batch-size 25 --max-items 0
 ```
+
+## Material Bank demo catalog import
+
+For the larger demo catalog, use the public Material Bank sitemap and the
+category scope in `../data/catalog/material-bank-demo-categories.json`. The
+current scope targets kitchen, bathroom, living-room, and mood-board surfaces:
+tile, paints, surfaces, flooring, textiles, wallcovering, masonry/stone,
+paneling, bathroom, kitchen, hardware, lighting, furniture, and decor.
+
+Generate a manifest with up to 50 matched products per category:
+
+```bash
+cd backend
+catalog-import-materialbank --per-category 50
+```
+
+Filter out broken image rows and paint/product-can photos:
+
+```bash
+cd backend
+catalog-filter-manifest
+```
+
+Build a review gallery from the generated manifest:
+
+```bash
+cd backend
+catalog-build-gallery \
+  --manifest ../data/catalog/material-bank-public-demo-curated-seed.json \
+  --output ../data/catalog/material-bank-public-demo-curated-gallery.html
+open ../data/catalog/material-bank-public-demo-curated-gallery.html
+```
+
+Smoke-test the importer without writing the manifest:
+
+```bash
+cd backend
+catalog-import-materialbank --max-sitemaps 1 --dry-run
+```
+
+Load the generated manifest and index it:
+
+```bash
+cd backend
+set -a && source .env && set +a
+catalog-load-seed --manifest ../data/catalog/material-bank-public-demo-curated-seed.json
+catalog-index-missing --batch-size 25 --max-items 1
+catalog-index-missing --batch-size 25 --max-items 0
+```
