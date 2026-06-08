@@ -7,7 +7,7 @@ import {
   getSearchRunStatus,
   uploadSearchImage,
 } from "../api";
-import { defaultPrompt, matchesByRegion, regions as demoRegions } from "../demoData";
+import { matchesByRegion, regions as demoRegions } from "../demoData";
 import { fileFromSample, type SampleImageOption } from "../samples";
 import type {
   CatalogMetadata,
@@ -30,6 +30,7 @@ export type UseSearchRunOptions = {
 const DEFAULT_POLL_MS = 2000;
 const DEFAULT_MIN_ANALYZE_MS = 800;
 const POLL_ATTEMPTS = 90;
+const EMPTY_PROMPT_FALLBACK = "Find orderable materials in this image.";
 
 export function useSearchRun(options: UseSearchRunOptions = {}) {
   const {
@@ -39,7 +40,7 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
   } = options;
 
   const [scenario, setScenario] = React.useState<RunScenario>(initialScenario);
-  const [prompt, setPrompt] = React.useState(defaultPrompt);
+  const [prompt, setPrompt] = React.useState("");
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [selectedFileName, setSelectedFileName] = React.useState<string | undefined>();
   const [previewUrl, setPreviewUrl] = React.useState<string | undefined>();
@@ -149,9 +150,10 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
     const startedAt = nowMs();
     try {
       const uploaded = await uploadSearchImage(selectedFile);
+      const searchPrompt = prompt.trim() || EMPTY_PROMPT_FALLBACK;
       const accepted = await createSearchRun({
         image_object_key: uploaded.image_object_key,
-        prompt,
+        prompt: searchPrompt,
         confidence_threshold: 0.45,
         max_regions: 5,
         include_masks: false,

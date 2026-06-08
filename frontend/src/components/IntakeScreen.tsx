@@ -88,7 +88,7 @@ export function IntakeScreen({
           <input
             aria-label="Search intent"
             value={prompt}
-            placeholder="What are you sourcing?  e.g. a warm matte floor tile"
+            placeholder="What are you sourcing?"
             onChange={(e) => onPromptChange(e.currentTarget.value)}
           />
           <button type="button" className="ui-button ui-button-default ui-button-size-default" disabled={!canRun} onClick={onRun}>

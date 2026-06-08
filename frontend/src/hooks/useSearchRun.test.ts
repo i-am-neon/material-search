@@ -90,6 +90,7 @@ describe("useSearchRun", () => {
   it("starts empty", () => {
     const { result } = renderHook(() => useSearchRun(fast));
     expect(result.current.scenario).toBe("empty");
+    expect(result.current.prompt).toBe("");
     expect(result.current.previewUrl).toBeUndefined();
   });
 
@@ -116,11 +117,28 @@ describe("useSearchRun", () => {
       await result.current.run();
     });
     await waitFor(() => expect(result.current.scenario).toBe("complete"));
+    expect(createSearchRun).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: "Find orderable materials in this image." }),
+    );
     expect(result.current.surfaces.map((s) => s.region.label)).toEqual(["Floor", "Wall"]);
     expect(result.current.surfaces[0].matchCount).toBe(2);
     expect(result.current.selectedRegion?.label).toBe("Floor");
     expect(result.current.selectedMatches).toHaveLength(2);
     expect(result.current.selectedMatches[0].similarity).toBeCloseTo(0.96);
+  });
+
+  it("submits the entered prompt when provided", async () => {
+    const { result } = renderHook(() => useSearchRun(fast));
+    act(() => {
+      result.current.selectFile(pngFile());
+      result.current.setPrompt("  warm matte floor tile  ");
+    });
+    await act(async () => {
+      await result.current.run();
+    });
+    expect(createSearchRun).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: "warm matte floor tile" }),
+    );
   });
 
   it("run() failure sets failed + error", async () => {
