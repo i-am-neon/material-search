@@ -3,15 +3,19 @@ import { AlertTriangle, RotateCcw } from "lucide-react";
 type AnalysisRevealProps = {
   mode: "analyzing" | "failed";
   previewUrl?: string;
+  imageWidth?: number;
+  imageHeight?: number;
   error?: string | null;
   onRetry: () => void;
   onReset: () => void;
 };
 
-export function AnalysisReveal({ mode, previewUrl, error, onRetry, onReset }: AnalysisRevealProps) {
+export function AnalysisReveal({ mode, previewUrl, imageWidth, imageHeight, error, onRetry, onReset }: AnalysisRevealProps) {
+  const aspect = imageWidth && imageHeight ? { aspectRatio: `${imageWidth} / ${imageHeight}` } : undefined;
+
   return (
     <section className="analysis wrap" aria-label="Analyzing reference image">
-      <div className={`analysis-stage ${mode === "analyzing" ? "scanning" : "failed"}`}>
+      <div className={`analysis-stage ${mode === "analyzing" ? "scanning" : "failed"}`} style={aspect}>
         {previewUrl ? <img src={previewUrl} alt="Reference under analysis" /> : null}
         {mode === "analyzing" ? <span className="image-ripple" aria-hidden="true" /> : null}
         <div className="analysis-caption">

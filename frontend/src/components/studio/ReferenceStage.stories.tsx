@@ -6,7 +6,14 @@ import demoRoom from "../../assets/demo-room.png";
 const meta: Meta<typeof ReferenceStage> = {
   title: "Studio/ReferenceStage",
   component: ReferenceStage,
-  args: { previewUrl: demoRoom, regions, selectedRegionId: regions[0].id, onSelect: () => {} },
+  args: {
+    previewUrl: demoRoom,
+    imageWidth: 1536,
+    imageHeight: 1024,
+    regions,
+    selectedRegionId: regions[0].id,
+    onSelect: () => {},
+  },
   decorators: [(S) => <div style={{ maxWidth: 520, padding: 24 }}><S /></div>],
 };
 export default meta;

@@ -14,6 +14,19 @@ type SearchWorkbenchProps = {
 
 export function SearchWorkbench({ initialScenario = "empty", testTiming }: SearchWorkbenchProps) {
   const run = useSearchRun({ initialScenario, ...testTiming });
+  const progressSnapshot = run.progress
+    ? {
+        ...run.progress,
+        imageWidth: run.progress.imageWidth ?? run.imageWidth,
+        imageHeight: run.progress.imageHeight ?? run.imageHeight,
+      }
+    : {
+        stage: "planning" as const,
+        surfaces: [],
+        previewUrl: run.previewUrl,
+        imageWidth: run.imageWidth,
+        imageHeight: run.imageHeight,
+      };
 
   return (
     <main className="app-shell">
@@ -35,23 +48,30 @@ export function SearchWorkbench({ initialScenario = "empty", testTiming }: Searc
           prompt={run.prompt}
           selectedFileName={run.selectedFileName}
           previewUrl={run.previewUrl}
+          imageWidth={run.imageWidth}
+          imageHeight={run.imageHeight}
           isRunning={run.isRunning}
           error={run.error}
           onPromptChange={run.setPrompt}
           onPickFile={run.selectFile}
-          onPickSample={run.selectSample}
           onRun={run.run}
         />
       ) : null}
 
       {run.scenario === "planning" || run.scenario === "matching" ? (
-        <ProgressReveal
-          snapshot={run.progress ?? { stage: "planning", surfaces: [], previewUrl: run.previewUrl }}
-        />
+        <ProgressReveal snapshot={progressSnapshot} />
       ) : null}
 
       {run.scenario === "failed" ? (
-        <AnalysisReveal mode="failed" previewUrl={run.previewUrl} error={run.error} onRetry={run.run} onReset={() => window.location.reload()} />
+        <AnalysisReveal
+          mode="failed"
+          previewUrl={run.previewUrl}
+          imageWidth={run.imageWidth}
+          imageHeight={run.imageHeight}
+          error={run.error}
+          onRetry={run.run}
+          onReset={() => window.location.reload()}
+        />
       ) : null}
 
       {run.scenario === "complete" ? (

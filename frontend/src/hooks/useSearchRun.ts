@@ -8,6 +8,7 @@ import {
   uploadSearchImage,
 } from "../api";
 import { matchesByRegion, regions as demoRegions } from "../demoData";
+import { measureImageDimensions, type ImageDimensions } from "../lib/imageDimensions";
 import { fileFromSample, type SampleImageOption } from "../samples";
 import type {
   CatalogMetadata,
@@ -44,6 +45,7 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [selectedFileName, setSelectedFileName] = React.useState<string | undefined>();
   const [previewUrl, setPreviewUrl] = React.useState<string | undefined>();
+  const [previewImageDimensions, setPreviewImageDimensions] = React.useState<ImageDimensions | null>(null);
   const [runResult, setRunResult] = React.useState<SegmentMatchResponse | null>(null);
   const [progress, setProgress] = React.useState<ProgressSnapshot | null>(null);
   const [selectedRegionId, setSelectedRegionId] = React.useState(demoRegions[0].id);
@@ -99,6 +101,7 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
   const resetForNewImage = () => {
     setRunResult(null);
     setProgress(null);
+    setPreviewImageDimensions(null);
     setCartIds([]);
     setError(null);
     setScenario("empty");
@@ -106,13 +109,14 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
   };
 
   const selectFile = (file: File) => {
-    selectionSeqRef.current += 1;
+    const seq = (selectionSeqRef.current += 1);
     setSelectedFile(file);
     setSelectedFileName(file.name);
     resetForNewImage();
     if (previewObjectUrlRef.current) URL.revokeObjectURL(previewObjectUrlRef.current);
     previewObjectUrlRef.current = URL.createObjectURL(file);
     setPreviewUrl(previewObjectUrlRef.current);
+    measurePreviewDimensions(previewObjectUrlRef.current, seq);
   };
 
   const selectSample = async (sample: SampleImageOption) => {
@@ -129,6 +133,7 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
         previewObjectUrlRef.current = null;
       }
       setPreviewUrl(sample.src);
+      measurePreviewDimensions(sample.src, seq);
     } catch {
       if (seq !== selectionSeqRef.current) return;
       setError("Could not load the sample image. Try uploading your own image.");
@@ -144,7 +149,13 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
     setRunResult(null);
     setCartIds([]);
     setScenario("planning");
-    setProgress({ stage: "planning", surfaces: [], previewUrl });
+    setProgress({
+      stage: "planning",
+      surfaces: [],
+      previewUrl,
+      imageWidth: previewImageDimensions?.width,
+      imageHeight: previewImageDimensions?.height,
+    });
     const seq = runSequenceRef.current + 1;
     runSequenceRef.current = seq;
     const startedAt = nowMs();
@@ -163,7 +174,7 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
       if (seq !== runSequenceRef.current) return;
       setScenario("matching");
       const result = await pollSearchRun(accepted.run_id, pollIntervalMs, (snapshot) => {
-        if (seq === runSequenceRef.current) setProgress(mapProgress(snapshot, previewUrl));
+        if (seq === runSequenceRef.current) setProgress(mapProgress(snapshot, previewUrl, previewImageDimensions));
       });
       if (seq !== runSequenceRef.current) return;
       await ensureMinDuration(startedAt, minAnalyzeMs);
@@ -190,8 +201,8 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
     setPrompt,
     selectedFileName,
     previewUrl,
-    imageWidth: runResult?.image_width,
-    imageHeight: runResult?.image_height,
+    imageWidth: runResult?.image_width ?? previewImageDimensions?.width,
+    imageHeight: runResult?.image_height ?? previewImageDimensions?.height,
     error,
     isRunning,
     progress,
@@ -208,6 +219,16 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
     cartItems,
     cartSurfaceCount,
   };
+
+  function measurePreviewDimensions(src: string, seq: number) {
+    measureImageDimensions(src)
+      .then((dimensions) => {
+        if (seq === selectionSeqRef.current) setPreviewImageDimensions(dimensions);
+      })
+      .catch(() => {
+        if (seq === selectionSeqRef.current) setPreviewImageDimensions(null);
+      });
+  }
 }
 
 function nowMs(): number {
@@ -246,9 +267,13 @@ const STAGE_MAP: Record<SearchRunProgressResponse["stage"], ProgressStage> = {
   failed: "planning",
 };
 
-function mapProgress(progress: SearchRunProgressResponse, previewUrl?: string): ProgressSnapshot {
-  const width = progress.image_width ?? 0;
-  const height = progress.image_height ?? 0;
+function mapProgress(
+  progress: SearchRunProgressResponse,
+  previewUrl?: string,
+  fallbackDimensions?: ImageDimensions | null,
+): ProgressSnapshot {
+  const width = progress.image_width ?? fallbackDimensions?.width ?? 0;
+  const height = progress.image_height ?? fallbackDimensions?.height ?? 0;
   const surfaces: ProgressSurface[] = progress.surfaces.map((surface) => {
     const [x0, y0, x1, y1] = surface.box_xyxy;
     return {

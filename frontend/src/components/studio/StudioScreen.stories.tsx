@@ -17,6 +17,8 @@ const meta: Meta<typeof StudioScreen> = {
   args: {
     prompt: "a warm matte floor tile",
     previewUrl: demoRoom,
+    imageWidth: 1536,
+    imageHeight: 1024,
     surfaces,
     selectedRegion: regions[0],
     selectedRegionId: regions[0].id,

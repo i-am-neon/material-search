@@ -8,6 +8,7 @@ import {
   progressFrames,
   segmentingFrame,
 } from "../progressDemo";
+import bathroomTall from "../assets/bathroom-tall.webp";
 
 const meta: Meta<typeof ProgressReveal> = {
   title: "Studio/ProgressReveal",
@@ -22,6 +23,16 @@ export const Planning: Story = { args: { snapshot: planningFrame } };
 export const Segmenting: Story = { args: { snapshot: segmentingFrame } };
 export const Matching: Story = { args: { snapshot: matchingFrame } };
 export const Complete: Story = { args: { snapshot: completeFrame } };
+export const TallBathroom: Story = {
+  args: {
+    snapshot: {
+      ...matchingFrame,
+      previewUrl: bathroomTall,
+      imageWidth: 513,
+      imageHeight: 640,
+    },
+  },
+};
 
 // Animated playthrough — steps through the whole reveal on a timer, then loops.
 // Lets us iterate on the staged animation with no real backend calls.

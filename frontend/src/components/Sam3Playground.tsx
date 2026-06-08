@@ -7,6 +7,7 @@ import {
   segmentSam3,
   uploadSearchImage,
 } from "../api";
+import { measureImageDimensions, type ImageDimensions } from "../lib/imageDimensions";
 import type { MaterialRegion } from "../types";
 import { ReferenceStage } from "./studio/ReferenceStage";
 import { Button } from "./ui/button";
@@ -30,6 +31,9 @@ export function Sam3Playground({
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [selectedFileName, setSelectedFileName] = React.useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = React.useState(initialPreviewUrl);
+  const [previewImageDimensions, setPreviewImageDimensions] = React.useState<ImageDimensions | null>(
+    initialResult ? { width: initialResult.image_width, height: initialResult.image_height } : null,
+  );
   const [confidenceThreshold, setConfidenceThreshold] = React.useState(0.5);
   const [maxRegions, setMaxRegions] = React.useState(20);
   const [includeMasks, setIncludeMasks] = React.useState(true);
@@ -40,6 +44,7 @@ export function Sam3Playground({
   const [error, setError] = React.useState<string | null>(null);
   const [isRunning, setIsRunning] = React.useState(false);
   const objectUrlRef = React.useRef<string | null>(null);
+  const imageSelectionSeqRef = React.useRef(0);
 
   React.useEffect(() => {
     return () => {
@@ -50,14 +55,20 @@ export function Sam3Playground({
   const regions = React.useMemo(() => (result ? mapSam3Regions(result) : []), [result]);
   const selectedRegion = regions.find((region) => region.id === selectedRegionId) ?? regions[0];
   const displayPreviewUrl = previewUrl || imageUrl || undefined;
+  const displayImageWidth = result?.image_width ?? previewImageDimensions?.width;
+  const displayImageHeight = result?.image_height ?? previewImageDimensions?.height;
+  const previewAspect = displayImageWidth && displayImageHeight ? { aspectRatio: `${displayImageWidth} / ${displayImageHeight}` } : undefined;
   const canRun = Boolean(prompt.trim()) && Boolean(selectedFile || imageUrl.trim()) && !isRunning;
 
   const selectFile = (file: File) => {
+    const seq = (imageSelectionSeqRef.current += 1);
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     objectUrlRef.current = URL.createObjectURL(file);
     setSelectedFile(file);
     setSelectedFileName(file.name);
     setPreviewUrl(objectUrlRef.current);
+    setPreviewImageDimensions(null);
+    measurePreviewDimensions(objectUrlRef.current, seq);
     setImageUrl("");
     setResult(null);
     setSelectedRegionId("");
@@ -65,6 +76,7 @@ export function Sam3Playground({
   };
 
   const onImageUrlChange = (value: string) => {
+    const seq = (imageSelectionSeqRef.current += 1);
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = null;
@@ -73,6 +85,8 @@ export function Sam3Playground({
     setSelectedFile(null);
     setSelectedFileName(null);
     setPreviewUrl(value.trim() || undefined);
+    setPreviewImageDimensions(null);
+    if (value.trim()) measurePreviewDimensions(value.trim(), seq);
     setResult(null);
     setSelectedRegionId("");
     setError(null);
@@ -127,7 +141,7 @@ export function Sam3Playground({
 
       <section className="sam3-grid wrap" aria-label="SAM3 playground">
         <form className="sam3-panel sam3-controls" onSubmit={(event) => { event.preventDefault(); void run(); }}>
-          <label className="sam3-drop" htmlFor={fileInputId}>
+          <label className={`sam3-drop ${displayPreviewUrl ? "has-preview" : ""}`} htmlFor={fileInputId} style={previewAspect}>
             {displayPreviewUrl ? (
               <img src={displayPreviewUrl} alt={selectedFileName ?? "SAM3 input"} />
             ) : (
@@ -257,6 +271,8 @@ export function Sam3Playground({
           <RawBoxStage
             previewUrl={displayPreviewUrl}
             result={result}
+            imageWidth={displayImageWidth}
+            imageHeight={displayImageHeight}
             selectedRegionId={selectedRegion?.id}
             onSelect={setSelectedRegionId}
           />
@@ -274,28 +290,42 @@ export function Sam3Playground({
             previewUrl={displayPreviewUrl}
             regions={regions}
             selectedRegionId={selectedRegion?.id ?? ""}
-            imageWidth={result?.image_width}
-            imageHeight={result?.image_height}
+            imageWidth={displayImageWidth}
+            imageHeight={displayImageHeight}
             onSelect={setSelectedRegionId}
           />
         </div>
       </section>
     </main>
   );
+
+  function measurePreviewDimensions(src: string, seq: number) {
+    measureImageDimensions(src)
+      .then((dimensions) => {
+        if (seq === imageSelectionSeqRef.current) setPreviewImageDimensions(dimensions);
+      })
+      .catch(() => {
+        if (seq === imageSelectionSeqRef.current) setPreviewImageDimensions(null);
+      });
+  }
 }
 
 function RawBoxStage({
   previewUrl,
   result,
+  imageWidth,
+  imageHeight,
   selectedRegionId,
   onSelect,
 }: {
   previewUrl?: string;
   result: RawSam3SegmentResponse | null;
+  imageWidth?: number;
+  imageHeight?: number;
   selectedRegionId?: string;
   onSelect: (regionId: string) => void;
 }) {
-  const aspect = result ? { aspectRatio: `${result.image_width} / ${result.image_height}` } : undefined;
+  const aspect = imageWidth && imageHeight ? { aspectRatio: `${imageWidth} / ${imageHeight}` } : undefined;
 
   return (
     <div className="sam3-raw-stage" style={aspect}>

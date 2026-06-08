@@ -1,16 +1,16 @@
 import React from "react";
-import { ArrowRight, ImagePlus, Loader2, Upload } from "lucide-react";
-import { sampleImages, type SampleImageOption } from "../samples";
+import { ArrowRight, ImagePlus, Loader2 } from "lucide-react";
 
 type IntakeScreenProps = {
   prompt: string;
   selectedFileName?: string;
   previewUrl?: string;
+  imageWidth?: number;
+  imageHeight?: number;
   isRunning: boolean;
   error?: string | null;
   onPromptChange: (value: string) => void;
   onPickFile: (file: File) => void;
-  onPickSample: (sample: SampleImageOption) => void;
   onRun: () => void;
 };
 
@@ -18,15 +18,17 @@ export function IntakeScreen({
   prompt,
   selectedFileName,
   previewUrl,
+  imageWidth,
+  imageHeight,
   isRunning,
   error,
   onPromptChange,
   onPickFile,
-  onPickSample,
   onRun,
 }: IntakeScreenProps) {
   const fileInputId = React.useId();
   const canRun = Boolean(selectedFileName) && !isRunning;
+  const previewAspect = imageWidth && imageHeight ? { aspectRatio: `${imageWidth} / ${imageHeight}` } : undefined;
 
   return (
     <section className="intake-body wrap" aria-label="New material search">
@@ -51,7 +53,7 @@ export function IntakeScreen({
       </div>
 
       <div className="intake-card">
-        <label className="dz-canvas" htmlFor={fileInputId}>
+        <label className={`dz-canvas ${previewUrl ? "has-preview" : ""}`} htmlFor={fileInputId} style={previewAspect}>
           {previewUrl ? (
             <img className="dz-preview" src={previewUrl} alt={selectedFileName ?? "Reference"} />
           ) : (
@@ -72,17 +74,6 @@ export function IntakeScreen({
             }}
           />
         </label>
-
-        {sampleImages.length ? (
-          <button
-            type="button"
-            className="dz-sample"
-            onClick={() => onPickSample(sampleImages[0])}
-          >
-            <Upload size={14} />
-            <span>or start with the {sampleImages[0].name.toLowerCase()} sample</span>
-          </button>
-        ) : null}
 
         <div className="dz-prompt">
           <input

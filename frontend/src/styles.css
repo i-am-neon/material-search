@@ -79,13 +79,12 @@ button { font-family: inherit; }
 
 .intake-card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; box-shadow: 0 30px 60px -34px rgba(0, 0, 0, 0.4); }
 .dz-canvas { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; border: 1.5px dashed rgba(25, 25, 25, 0.32); border-radius: 12px; aspect-ratio: 5 / 4; cursor: pointer; overflow: hidden; background: repeating-linear-gradient(45deg, rgba(25, 25, 25, 0.018) 0 12px, transparent 12px 24px); }
+.dz-canvas.has-preview { border-style: solid; background: var(--paper-2); }
 .dz-canvas input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.dz-preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.dz-preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .dz-icon { width: 46px; height: 46px; border-radius: 12px; background: var(--paper-2); display: flex; align-items: center; justify-content: center; color: var(--ink); }
 .dz-title { font-family: "Fraunces", serif; font-size: 21px; }
 .dz-sub { font-size: 13px; color: var(--ink-3); }
-.dz-sample { display: inline-flex; align-items: center; gap: 7px; margin: 12px auto 0; background: none; border: 0; color: var(--ink-2); font-size: 12.5px; cursor: pointer; }
-.dz-sample:hover { color: var(--ink); }
 .dz-prompt { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 6px 6px 6px 18px; border: 1px solid var(--line); border-radius: 100px; background: var(--paper); }
 .dz-prompt input { flex: 1; border: 0; background: transparent; font-family: inherit; font-size: 14px; color: var(--ink); outline: none; }
 .dz-prompt input::placeholder { color: var(--ink-3); }
@@ -96,7 +95,7 @@ button { font-family: inherit; }
 /* ---- Transition: Analysis reveal ---- */
 .analysis { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; }
 .analysis-stage { position: relative; width: min(760px, 100%); border-radius: 18px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 30px 60px -34px rgba(0, 0, 0, 0.5); background: var(--paper-2); aspect-ratio: 3 / 2; }
-.analysis-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.analysis-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .analysis-stage.scanning img { filter: grayscale(0.2) contrast(1.02); }
 .image-ripple { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .image-ripple::before,
@@ -117,11 +116,11 @@ button { font-family: inherit; }
 .analysis-actions { display: flex; gap: 10px; margin-top: 14px; }
 
 /* ---- Transition: Progress reveal (live run) ---- */
-.progress { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 0; }
-.progress-card { display: grid; grid-template-columns: 1.5fr 1fr; gap: 30px; width: 100%; align-items: center; }
+.progress { flex: 1 1 0; min-height: 0; display: flex; align-items: center; justify-content: center; padding-block: clamp(16px, 4vh, 40px); overflow: hidden; }
+.progress-card { --progress-stage-max-height: calc(100vh - 150px); display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); gap: 30px; width: 100%; max-height: 100%; align-items: center; min-height: 0; }
 
-.progress-stage { position: relative; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 30px 60px -34px rgba(0, 0, 0, 0.5); background: var(--paper-2); aspect-ratio: 5 / 4; }
-.progress-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: filter 0.4s; }
+.progress-stage { position: relative; justify-self: center; width: min(100%, calc(var(--progress-stage-max-height) * var(--image-aspect, 1.25))); max-height: var(--progress-stage-max-height); border-radius: 18px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 30px 60px -34px rgba(0, 0, 0, 0.5); background: var(--paper-2); aspect-ratio: 5 / 4; }
+.progress-stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: filter 0.4s; }
 .progress-stage.scanning img { filter: grayscale(0.25) contrast(1.02); }
 
 .progress-box { position: absolute; border-radius: 8px; transition: border-color 0.3s, box-shadow 0.3s, background 0.3s; }
@@ -138,7 +137,7 @@ button { font-family: inherit; }
 .progress-box.matched .progress-tag { background: var(--ink); color: #fff; }
 .progress-tag-meta { font-weight: 600; opacity: 0.7; }
 
-.progress-rail { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.progress-rail { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-height: 100%; overflow: auto; }
 .progress-eyebrow { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-3); font-weight: 700; margin-bottom: 6px; }
 .progress-step { display: flex; gap: 13px; padding: 16px 0; border-bottom: 1px solid var(--line-2); transition: opacity 0.3s; }
 .progress-step:last-child { border-bottom: 0; }
@@ -161,8 +160,9 @@ button { font-family: inherit; }
 .progress-thumb.empty { border: 1px dashed var(--line); background-color: var(--paper); }
 
 @media (max-width: 900px) {
-  .progress-card { grid-template-columns: 1fr; gap: 22px; }
+  .progress-card { --progress-stage-max-height: 42vh; grid-template-columns: 1fr; gap: 22px; }
   .progress-stage { aspect-ratio: 3 / 2; }
+  .progress-rail { max-height: calc(58vh - 120px); }
 }
 
 /* ---- Studio: reference stage ---- */
@@ -170,7 +170,7 @@ button { font-family: inherit; }
 .ref-head h2 { font-size: 24px; }
 .ref-meta { font-size: 12px; color: var(--ink-3); }
 .stage { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 24px 48px -30px rgba(0, 0, 0, 0.5); aspect-ratio: 5 / 4; background: var(--paper-2); }
-.stage img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.stage img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .stage-empty { position: absolute; inset: 0; }
 .region { position: absolute; border: 2px solid rgba(255, 255, 255, 0.9); border-radius: 8px; cursor: pointer; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 8px 22px rgba(0, 0, 0, 0.22); background: transparent; transition: background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, opacity 0.2s ease; }
 .region .tag { position: absolute; top: -12px; left: 8px; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; background: rgba(255, 255, 255, 0.94); color: var(--ink-2); padding: 3px 8px; border-radius: 6px; white-space: nowrap; transition: background 0.15s ease, color 0.15s ease; }
@@ -303,8 +303,9 @@ button { font-family: inherit; }
 .sam3-panel-head > span { color: var(--ink-3); font-size: 12px; white-space: nowrap; }
 .sam3-controls { display: flex; flex-direction: column; gap: 14px; }
 .sam3-drop { position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; min-height: 260px; border: 1.5px dashed rgba(25, 25, 25, 0.32); border-radius: 10px; overflow: hidden; cursor: pointer; background: var(--paper); color: var(--ink-2); font-weight: 600; }
+.sam3-drop.has-preview { min-height: 0; border-style: solid; background: var(--paper-2); }
 .sam3-drop input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.sam3-drop img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sam3-drop img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .sam3-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .sam3-field span, .sam3-toggle span { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-3); font-weight: 700; }
 .sam3-field input { width: 100%; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); font: inherit; font-size: 14px; padding: 10px 12px; outline: none; }
@@ -321,7 +322,7 @@ button { font-family: inherit; }
 .sam3-json { max-height: 420px; overflow: auto; margin: 14px 0 0; padding: 14px; background: #202124; color: #f2f2f2; border-radius: 10px; font-size: 12px; line-height: 1.45; }
 .sam3-empty { min-height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--ink-3); background: var(--paper); border-radius: 10px; }
 .sam3-raw-stage { position: relative; border-radius: 16px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 24px 48px -30px rgba(0, 0, 0, 0.5); aspect-ratio: 5 / 4; background: var(--paper-2); }
-.sam3-raw-stage img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.sam3-raw-stage img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .sam3-raw-region { position: absolute; border: 1.5px dashed rgba(255, 255, 255, 0.95); background: rgba(45, 48, 54, 0.08); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35); cursor: pointer; }
 .sam3-raw-region.active { border-style: solid; background: rgba(25, 25, 25, 0.18); box-shadow: 0 0 0 2px #fff, 0 12px 26px rgba(0, 0, 0, 0.32); }
 .sam3-raw-region span { position: absolute; top: 6px; left: 6px; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 100px; background: rgba(255, 255, 255, 0.94); color: var(--ink); font-size: 11px; font-weight: 800; }

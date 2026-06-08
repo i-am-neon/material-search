@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { Check, Circle, Loader2 } from "lucide-react";
 import type { ProgressSnapshot, ProgressStage } from "../types";
 
@@ -32,7 +33,10 @@ export function ProgressReveal({ snapshot }: ProgressRevealProps) {
   const foundCount = surfaces.length;
   const matchedCount = surfaces.filter((s) => s.status === "matched").length;
   const scanning = stage === "planning" || stage === "segmenting";
-  const aspect = imageWidth && imageHeight ? { aspectRatio: `${imageWidth} / ${imageHeight}` } : undefined;
+  const aspect =
+    imageWidth && imageHeight
+      ? ({ aspectRatio: `${imageWidth} / ${imageHeight}`, "--image-aspect": imageWidth / imageHeight } as CSSProperties)
+      : undefined;
 
   const understandingState: StepState = stage === "planning" ? "active" : "done";
   const findingState: StepState = !reached(stage, "segmenting")

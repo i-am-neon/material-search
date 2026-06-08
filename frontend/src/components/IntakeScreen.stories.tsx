@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { IntakeScreen } from "./IntakeScreen";
+import demoBathroom from "../assets/demo-bathroom.png";
 
 const meta: Meta<typeof IntakeScreen> = {
   title: "Studio/IntakeScreen",
@@ -11,7 +12,6 @@ const meta: Meta<typeof IntakeScreen> = {
     error: null,
     onPromptChange: () => {},
     onPickFile: () => {},
-    onPickSample: () => {},
     onRun: () => {},
   },
 };
@@ -19,6 +19,21 @@ export default meta;
 type Story = StoryObj<typeof IntakeScreen>;
 
 export const Empty: Story = {};
-export const WithFile: Story = { args: { selectedFileName: "room.png" } };
-export const Running: Story = { args: { selectedFileName: "room.png", isRunning: true } };
+export const WithFile: Story = {
+  args: {
+    selectedFileName: "green-shower-bath-sample.png",
+    previewUrl: demoBathroom,
+    imageWidth: 513,
+    imageHeight: 640,
+  },
+};
+export const Running: Story = {
+  args: {
+    selectedFileName: "green-shower-bath-sample.png",
+    previewUrl: demoBathroom,
+    imageWidth: 513,
+    imageHeight: 640,
+    isRunning: true,
+  },
+};
 export const WithError: Story = { args: { error: "Choose a reference image before running search." } };

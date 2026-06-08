@@ -11,7 +11,6 @@ const baseProps = {
   error: null,
   onPromptChange: vi.fn(),
   onPickFile: vi.fn(),
-  onPickSample: vi.fn(),
   onRun: vi.fn(),
 };
 
