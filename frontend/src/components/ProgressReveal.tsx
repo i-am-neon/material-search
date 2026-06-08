@@ -65,7 +65,7 @@ export function ProgressReveal({ snapshot }: ProgressRevealProps) {
           ) : (
             <div className="stage-empty swatch-fallback" />
           )}
-          {scanning ? <span className="scan-line" aria-hidden="true" /> : null}
+          {scanning ? <span className="image-ripple" aria-hidden="true" /> : null}
           {surfaces.map((surface) => {
             const flipTag = surface.box.left + surface.box.width / 2 > 50;
             return (

@@ -13,7 +13,7 @@ export function AnalysisReveal({ mode, previewUrl, error, onRetry, onReset }: An
     <section className="analysis wrap" aria-label="Analyzing reference image">
       <div className={`analysis-stage ${mode === "analyzing" ? "scanning" : "failed"}`}>
         {previewUrl ? <img src={previewUrl} alt="Reference under analysis" /> : null}
-        {mode === "analyzing" ? <span className="scan-line" aria-hidden="true" /> : null}
+        {mode === "analyzing" ? <span className="image-ripple" aria-hidden="true" /> : null}
         <div className="analysis-caption">
           {mode === "analyzing" ? (
             <>
