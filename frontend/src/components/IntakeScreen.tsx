@@ -46,7 +46,7 @@ export function IntakeScreen({
           <span className="dot">·</span>
           <span><b>Vector</b> catalog match</span>
           <span className="dot">·</span>
-          <span><b>37k+</b> materials</span>
+          <span><b>600+</b> materials</span>
         </div>
       </div>
 
