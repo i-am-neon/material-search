@@ -17,5 +17,6 @@ describe("ReferenceStage", () => {
     await userEvent.click(wall);
     expect(onSelect).toHaveBeenCalledWith("wall");
     expect(screen.getByRole("button", { name: /select floor/i })).toHaveClass("region sel");
+    expect(screen.queryByText(/selected/i)).not.toBeInTheDocument();
   });
 });

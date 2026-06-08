@@ -13,12 +13,14 @@ const match: ProductMatch = {
 };
 
 describe("MatchCard", () => {
-  it("renders brand, name, similarity and toggles cart", async () => {
+  it("renders brand, name, family and toggles cart", async () => {
     const onToggleCart = vi.fn();
     render(<MatchCard match={match} inCart={false} onToggleCart={onToggleCart} />);
     expect(screen.getByText("Listone Giordano")).toBeInTheDocument();
     expect(screen.getByText("Heritage Oak")).toBeInTheDocument();
-    expect(screen.getByText("96%")).toBeInTheDocument();
+    expect(screen.getByText("wood")).toBeInTheDocument();
+    expect(screen.queryByText("96%")).not.toBeInTheDocument();
+    expect(screen.queryByText("Matches the floor surface")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /add to specification/i }));
     expect(onToggleCart).toHaveBeenCalledWith("floor-oak");
   });

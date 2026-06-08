@@ -41,10 +41,6 @@ export function StudioScreen({
   onNewSearch,
   onOrder,
 }: StudioScreenProps) {
-  const avgConfidence = surfaces.length
-    ? surfaces.reduce((sum, s) => sum + (s.region.score ?? 0), 0) / surfaces.length
-    : 0;
-
   return (
     <section className="studio" aria-label="Material studio">
       <div className="studio-sub">
@@ -55,19 +51,22 @@ export function StudioScreen({
           <span className="chip">Sourcing for <span className="chip-q">"{prompt}"</span></span>
         </div>
         <div className="studio-meta">
-          {surfaces.length} surfaces detected{avgConfidence ? ` · ${avgConfidence.toFixed(2)} avg confidence` : ""}
+          {surfaces.length} surfaces detected
         </div>
       </div>
 
       <div className="studio-grid wrap">
-        <ReferenceStage
-          previewUrl={previewUrl}
-          regions={surfaces.map((s) => s.region)}
-          selectedRegionId={selectedRegionId}
-          imageWidth={imageWidth}
-          imageHeight={imageHeight}
-          onSelect={onSelectRegion}
-        />
+        <div className="studio-left">
+          <ReferenceStage
+            previewUrl={previewUrl}
+            regions={surfaces.map((s) => s.region)}
+            selectedRegionId={selectedRegionId}
+            imageWidth={imageWidth}
+            imageHeight={imageHeight}
+            onSelect={onSelectRegion}
+          />
+          <SurfaceSelector surfaces={surfaces} selectedRegionId={selectedRegionId} onSelect={onSelectRegion} />
+        </div>
         <div className="studio-right">
           <MatchesGallery
             surfaceLabel={selectedRegion?.label}
@@ -76,10 +75,6 @@ export function StudioScreen({
             onToggleCart={onToggleCart}
           />
         </div>
-      </div>
-      <div className="studio-grid wrap studio-selector-row">
-        <SurfaceSelector surfaces={surfaces} selectedRegionId={selectedRegionId} onSelect={onSelectRegion} />
-        <div />
       </div>
 
       <SpecificationTray items={cartItems} surfaceCount={cartSurfaceCount} onOrder={onOrder} />

@@ -35,6 +35,8 @@ describe("StudioScreen", () => {
   it("shows intent, surfaces, and matches for the selected region", () => {
     render(<StudioScreen {...props()} />);
     expect(screen.getByText(/warm matte floor/i)).toBeInTheDocument();
+    expect(screen.getByText(`${surfaces.length} surfaces detected`)).toBeInTheDocument();
+    expect(screen.queryByText(/avg confidence/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /select aggregate floor/i })).toBeInTheDocument();
     expect(screen.getAllByText(/add to specification|in specification/i).length).toBeGreaterThan(0);
   });

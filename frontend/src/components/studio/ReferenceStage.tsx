@@ -44,9 +44,7 @@ export function ReferenceStage({
                 onClick={() => onSelect(region.id)}
                 aria-label={`Select ${region.label}`}
               >
-                <span className={`tag ${flipTag ? "flip" : ""}`}>
-                  {region.id === selectedRegionId ? `${region.label} · selected` : region.label}
-                </span>
+                <span className={`tag ${flipTag ? "flip" : ""}`}>{region.label}</span>
               </button>
             );
           })}
