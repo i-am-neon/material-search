@@ -2,6 +2,8 @@
 
 Project-local instructions for agents working in this repo.
 
+> `CLAUDE.md` in this repo is a symlink to this file (`ln -s AGENTS.md CLAUDE.md`), so the two are the same file and always match. Never replace the symlink with a real file — Claude Code reads `CLAUDE.md` and would otherwise silently drift from these instructions.
+
 ## Project Context
 
 This repo is a fresh rewrite seed for a Material Bank interview project. Do not port the old `sam3-learning` implementation directly. Treat the architecture docs as the source of truth:
