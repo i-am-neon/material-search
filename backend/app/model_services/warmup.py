@@ -1,4 +1,5 @@
 import argparse
+import concurrent.futures
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -31,19 +32,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--service",
         choices=["all", "sam3", "embedding"],
-        default="all",
+        default=None,
         help="Which Modal service to warm. Defaults to both configured services.",
+    )
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help=(
+            "Use demo-prep defaults: warm both services twice, keep the delay short, "
+            "and warm three SigLIP containers in parallel."
+        ),
     )
     parser.add_argument(
         "--repeat",
         type=int,
-        default=1,
+        default=None,
         help="Number of warmup rounds to run. Use more than 1 to keep containers warm.",
     )
     parser.add_argument(
         "--interval-seconds",
         type=float,
-        default=30.0,
+        default=None,
         help="Delay between repeated warmup rounds.",
     )
     parser.add_argument(
@@ -55,7 +64,36 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sam3-image-url", default=DEFAULT_SAM3_IMAGE_URL)
     parser.add_argument("--sam3-prompt", default="shoe")
     parser.add_argument("--embedding-image-url", default=DEFAULT_EMBEDDING_IMAGE_URL)
-    return parser.parse_args()
+    parser.add_argument(
+        "--embedding-concurrency",
+        type=int,
+        default=None,
+        help=(
+            "Number of parallel SigLIP requests to make per warmup round. "
+            "Use this to pre-warm multiple Modal GPU containers before a demo."
+        ),
+    )
+    args = parser.parse_args()
+    apply_defaults(args)
+    return args
+
+
+def apply_defaults(args: argparse.Namespace) -> None:
+    if args.demo:
+        args.service = args.service or "all"
+        args.repeat = 2 if args.repeat is None else args.repeat
+        args.interval_seconds = 5.0 if args.interval_seconds is None else args.interval_seconds
+        args.embedding_concurrency = (
+            3 if args.embedding_concurrency is None else args.embedding_concurrency
+        )
+        return
+
+    args.service = args.service or "all"
+    args.repeat = 1 if args.repeat is None else args.repeat
+    args.interval_seconds = 30.0 if args.interval_seconds is None else args.interval_seconds
+    args.embedding_concurrency = (
+        1 if args.embedding_concurrency is None else args.embedding_concurrency
+    )
 
 
 def warm_sam3(
@@ -134,6 +172,32 @@ def warm_embedding(
     )
 
 
+def warm_embeddings_concurrently(
+    *,
+    concurrency: int,
+    base_url: str,
+    image_url: str = DEFAULT_EMBEDDING_IMAGE_URL,
+    model_id: str,
+    dimensions: int,
+    timeout_seconds: float = 300.0,
+    post: Callable[..., httpx.Response] = httpx.post,
+) -> list[WarmupResult]:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as executor:
+        futures = [
+            executor.submit(
+                warm_embedding,
+                base_url=base_url,
+                image_url=image_url,
+                model_id=model_id,
+                dimensions=dimensions,
+                timeout_seconds=timeout_seconds,
+                post=post,
+            )
+            for _ in range(concurrency)
+        ]
+        return [future.result() for future in concurrent.futures.as_completed(futures)]
+
+
 def selected_services(service: str) -> set[ServiceName]:
     if service == "all":
         return {"sam3", "embedding"}
@@ -150,6 +214,8 @@ def main() -> None:
         raise SystemExit("--repeat must be at least 1")
     if args.interval_seconds < 0:
         raise SystemExit("--interval-seconds must be non-negative")
+    if args.embedding_concurrency < 1:
+        raise SystemExit("--embedding-concurrency must be at least 1")
 
     settings = get_settings()
     requested = selected_services(args.service)
@@ -182,15 +248,35 @@ def main() -> None:
                     prompt=args.sam3_prompt,
                     timeout_seconds=args.timeout_seconds,
                 )
+                print(format_result(result))
             else:
-                result = warm_embedding(
-                    base_url=str(settings.embedding_service_url),
-                    image_url=args.embedding_image_url,
-                    model_id=settings.embedding_model_id,
-                    dimensions=settings.embedding_dimensions,
-                    timeout_seconds=args.timeout_seconds,
-                )
-            print(format_result(result))
+                if args.embedding_concurrency == 1:
+                    result = warm_embedding(
+                        base_url=str(settings.embedding_service_url),
+                        image_url=args.embedding_image_url,
+                        model_id=settings.embedding_model_id,
+                        dimensions=settings.embedding_dimensions,
+                        timeout_seconds=args.timeout_seconds,
+                    )
+                    print(format_result(result))
+                else:
+                    print(
+                        "Warming embedding with "
+                        f"{args.embedding_concurrency} concurrent requests"
+                    )
+                    results = warm_embeddings_concurrently(
+                        concurrency=args.embedding_concurrency,
+                        base_url=str(settings.embedding_service_url),
+                        image_url=args.embedding_image_url,
+                        model_id=settings.embedding_model_id,
+                        dimensions=settings.embedding_dimensions,
+                        timeout_seconds=args.timeout_seconds,
+                    )
+                    for index, result in enumerate(results, start=1):
+                        print(
+                            f"Concurrent embedding warmup {index}/{len(results)}: "
+                            f"{format_result(result)}"
+                        )
 
         if round_index < args.repeat - 1:
             time.sleep(args.interval_seconds)

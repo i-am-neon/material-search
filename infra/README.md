@@ -136,13 +136,15 @@ warmed container alive for 20 minutes after the last request. Before a demo, run
 real inference warmups from the repo root:
 
 ```bash
-scripts/warm-modal-services.sh --service all
+scripts/demo-prep.sh
 ```
 
 This intentionally calls `POST /segment-image` and `POST /embed-image` so the
-model weights are loaded into the live containers. A `GET /healthz` request only
-checks the service shell and does not warm the model. For a longer demo window,
-repeat warmups below the 20-minute scaledown window:
+model weights are loaded into the live containers. It also sends three
+concurrent SigLIP embedding requests to warm the parallel containers used during
+multi-region matching. A `GET /healthz` request only checks the service shell
+and does not warm the model. For a longer demo window, repeat warmups below the
+20-minute scaledown window:
 
 ```bash
 scripts/warm-modal-services.sh --service all --repeat 4 --interval-seconds 900

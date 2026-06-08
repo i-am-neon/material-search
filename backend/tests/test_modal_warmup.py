@@ -1,8 +1,12 @@
+from argparse import Namespace
+
 import pytest
 
 from app.model_services.warmup import (
+    apply_defaults,
     format_result,
     selected_services,
+    warm_embeddings_concurrently,
     warm_embedding,
     warm_sam3,
 )
@@ -100,6 +104,51 @@ def test_warm_embedding_posts_minimal_inference_request(monkeypatch):
     assert result.service == "embedding"
     assert result.elapsed_seconds == 3.0
     assert result.summary["embedding_length"] == 3
+
+
+def test_demo_defaults_warm_parallel_embedding_containers():
+    args = Namespace(
+        demo=True,
+        service=None,
+        repeat=None,
+        interval_seconds=None,
+        embedding_concurrency=None,
+    )
+
+    apply_defaults(args)
+
+    assert args.service == "all"
+    assert args.repeat == 2
+    assert args.interval_seconds == 5.0
+    assert args.embedding_concurrency == 3
+
+
+def test_warm_embeddings_concurrently_posts_one_request_per_worker():
+    captured = []
+
+    def fake_post(url, *, json, timeout):
+        captured.append((url, json, timeout))
+        return FakeResponse(
+            {
+                "model_id": "siglip-test",
+                "dimensions": 3,
+                "embedding": [0.1, 0.2, 0.3],
+            }
+        )
+
+    results = warm_embeddings_concurrently(
+        concurrency=3,
+        base_url="https://embedding.example.com/",
+        image_url="https://example.com/source.jpg",
+        model_id="siglip-test",
+        dimensions=3,
+        timeout_seconds=45.0,
+        post=fake_post,
+    )
+
+    assert len(results) == 3
+    assert len(captured) == 3
+    assert all(result.summary["embedding_length"] == 3 for result in results)
 
 
 @pytest.mark.parametrize(

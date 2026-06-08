@@ -187,15 +187,17 @@ repository secret.
 
 ## Demo Modal warmup
 
-Warm both Modal model containers shortly before recording a demo:
+Warm both Modal model services shortly before recording a demo:
 
 ```bash
-scripts/warm-modal-services.sh
+scripts/demo-prep.sh
 ```
 
-The warmup makes real, minimal inference requests to SAM3 and SigLIP, then
-prints timing and compact response summaries. Use repeats if you want to keep
-containers warm while setting up the screen recorder:
+The demo prep script makes real, minimal inference requests to SAM3 and SigLIP,
+then fans out three concurrent SigLIP requests so the likely parallel embedding
+containers are warm before the app needs them. Use the lower-level warmup script
+directly if you want a longer keepalive window while setting up the screen
+recorder:
 
 ```bash
 scripts/warm-modal-services.sh --repeat 3 --interval-seconds 45

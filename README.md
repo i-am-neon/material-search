@@ -155,7 +155,7 @@ Material sourcing from images is not just object detection. The system has to tr
 
 ```bash
 ./scripts/dev.sh
-scripts/warm-modal-services.sh
+scripts/demo-prep.sh
 ```
 
 Open:
