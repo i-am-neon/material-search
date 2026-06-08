@@ -129,6 +129,25 @@ secrets:
 - `MODAL_TOKEN_ID`
 - `MODAL_TOKEN_SECRET`
 
+## Modal Demo Warmup
+
+The Modal services scale to zero when idle, but each deployed function keeps a
+warmed container alive for 20 minutes after the last request. Before a demo, run
+real inference warmups from the repo root:
+
+```bash
+scripts/warm-modal-services.sh --service all
+```
+
+This intentionally calls `POST /segment-image` and `POST /embed-image` so the
+model weights are loaded into the live containers. A `GET /healthz` request only
+checks the service shell and does not warm the model. For a longer demo window,
+repeat warmups below the 20-minute scaledown window:
+
+```bash
+scripts/warm-modal-services.sh --service all --repeat 4 --interval-seconds 900
+```
+
 After deploy, set `SAM3_SERVICE_URL` in `backend/.env`, Render, and GitHub
 Actions secrets. Validate the real endpoint with:
 

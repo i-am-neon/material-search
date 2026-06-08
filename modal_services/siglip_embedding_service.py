@@ -6,6 +6,7 @@ import modal
 
 MODEL_ID = "google/siglip2-so400m-patch14-384"
 DIMENSIONS = 1152
+SCALEDOWN_WINDOW_SECONDS = 20 * 60
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -82,7 +83,7 @@ def embed_pil_image(pil_image):
     image=image,
     gpu="T4",
     timeout=120,
-    scaledown_window=60,
+    scaledown_window=SCALEDOWN_WINDOW_SECONDS,
     secrets=[
         modal.Secret.from_name(
             "material-search-embedding-env",
@@ -133,4 +134,3 @@ def fastapi_app():
         }
 
     return api
-

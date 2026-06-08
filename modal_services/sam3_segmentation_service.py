@@ -6,6 +6,7 @@ from urllib.parse import quote
 import modal
 
 MODEL_ID = "facebook/sam3"
+SCALEDOWN_WINDOW_SECONDS = 20 * 60
 
 image = (
     modal.Image.debian_slim(python_version="3.12")
@@ -105,7 +106,7 @@ def clamp_box(box: list[float], width: int, height: int) -> list[float]:
     image=image,
     gpu="A10G",
     timeout=300,
-    scaledown_window=300,
+    scaledown_window=SCALEDOWN_WINDOW_SECONDS,
     secrets=[
         modal.Secret.from_name(
             "material-search-sam3-env",
