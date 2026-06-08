@@ -44,6 +44,8 @@ function frame(stage: ProgressStage, found: number, matched: number): ProgressSn
   return {
     stage,
     previewUrl: demoRoom,
+    imageWidth: 1536,
+    imageHeight: 1024,
     intent: stage === "planning" ? undefined : DEMO_INTENT,
     plannedTargets: stage === "planning" ? undefined : demoPlannedTargets,
     surfaces,

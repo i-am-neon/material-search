@@ -1,5 +1,12 @@
+import re
+
 from app.core.config import Settings
-from app.core.observability import configure_observability, search_source_kind, span
+from app.core.observability import (
+    _FASTAPI_EXCLUDED_URLS,
+    configure_observability,
+    search_source_kind,
+    span,
+)
 
 
 def test_observability_can_be_disabled_without_logfire_side_effects():
@@ -23,3 +30,17 @@ def test_search_source_kind_labels_material_search_inputs():
     assert object_key_source == "object_key"
     assert url_source == "url"
     assert search_source_kind(image_object_key=None, image_url=None) == "missing"
+
+
+def test_fastapi_observability_excludes_polling_urls():
+    excluded = [re.compile(pattern) for pattern in _FASTAPI_EXCLUDED_URLS]
+
+    assert any(pattern.match("http://testserver/healthz") for pattern in excluded)
+    assert any(
+        pattern.match("http://testserver/search/runs/1804cd88-f240-46f1-9cf6-2b30e4cfead2")
+        for pattern in excluded
+    )
+    assert not any(pattern.match("http://testserver/search/runs") for pattern in excluded)
+    assert not any(
+        pattern.match("http://testserver/search/segment-matches") for pattern in excluded
+    )

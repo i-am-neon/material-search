@@ -33,6 +33,10 @@ services:
         value: material-search-api
       - key: LOGFIRE_BASE_URL
         value: https://logfire-us.pydantic.dev
+      - key: LOGFIRE_INSTRUMENT_GOOGLE_GENAI
+        value: "true"
+      - key: LOGFIRE_CAPTURE_LLM_CONTENT
+        value: "true"
       - key: EMBEDDING_MODEL_ID
         value: google/siglip2-so400m-patch14-384
       - key: EMBEDDING_DIMENSIONS

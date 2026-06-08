@@ -26,12 +26,13 @@ function StepIcon({ state }: { state: StepState }) {
  * their artifact as it lands. Driven by a stream of ProgressSnapshots.
  */
 export function ProgressReveal({ snapshot }: ProgressRevealProps) {
-  const { stage, intent, plannedTargets, surfaces, previewUrl } = snapshot;
+  const { stage, intent, plannedTargets, surfaces, previewUrl, imageWidth, imageHeight } = snapshot;
 
   const total = plannedTargets?.length ?? surfaces.length;
   const foundCount = surfaces.length;
   const matchedCount = surfaces.filter((s) => s.status === "matched").length;
   const scanning = stage === "planning" || stage === "segmenting";
+  const aspect = imageWidth && imageHeight ? { aspectRatio: `${imageWidth} / ${imageHeight}` } : undefined;
 
   const understandingState: StepState = stage === "planning" ? "active" : "done";
   const findingState: StepState = !reached(stage, "segmenting")
@@ -58,39 +59,44 @@ export function ProgressReveal({ snapshot }: ProgressRevealProps) {
   return (
     <section className="progress wrap" aria-label="Search progress">
       <div className="progress-card">
-        <div className={`progress-stage ${scanning ? "scanning" : ""}`}>
+        <div className={`progress-stage ${scanning ? "scanning" : ""}`} style={aspect}>
           {previewUrl ? (
             <img src={previewUrl} alt="Reference under analysis" />
           ) : (
             <div className="stage-empty swatch-fallback" />
           )}
           {scanning ? <span className="scan-line" aria-hidden="true" /> : null}
-          {surfaces.map((surface) => (
-            <div
-              key={surface.id}
-              className={`progress-box ${surface.status}`}
-              style={{
-                left: `${surface.box.left}%`,
-                top: `${surface.box.top}%`,
-                width: `${surface.box.width}%`,
-                height: `${surface.box.height}%`,
-              }}
-            >
-              {surface.status === "matching" ? (
-                <span className="progress-box-scan" aria-hidden="true" />
-              ) : null}
-              <span className="progress-tag">
-                {surface.label}
-                {surface.status === "matched" ? (
-                  <Check size={11} aria-hidden="true" />
-                ) : surface.status === "matching" ? (
-                  <span className="progress-tag-meta">· matching…</span>
-                ) : surface.score != null ? (
-                  <span className="progress-tag-meta">· {Math.round(surface.score * 100)}%</span>
+          {surfaces.map((surface) => {
+            const flipTag = surface.box.left + surface.box.width / 2 > 50;
+            return (
+              <div
+                key={surface.id}
+                className={`progress-box ${surface.status}`}
+                style={{
+                  left: `${surface.box.left}%`,
+                  top: `${surface.box.top}%`,
+                  width: `${surface.box.width}%`,
+                  height: `${surface.box.height}%`,
+                }}
+              >
+                {surface.status === "matching" ? (
+                  <span className="progress-box-fill" aria-hidden="true">
+                    <span className="progress-box-scan" />
+                  </span>
                 ) : null}
-              </span>
-            </div>
-          ))}
+                <span className={`progress-tag ${flipTag ? "flip" : ""}`}>
+                  {surface.label}
+                  {surface.status === "matched" ? (
+                    <Check size={11} aria-hidden="true" />
+                  ) : surface.status === "matching" ? (
+                    <span className="progress-tag-meta">· matching…</span>
+                  ) : surface.score != null ? (
+                    <span className="progress-tag-meta">· {Math.round(surface.score * 100)}%</span>
+                  ) : null}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         <ol className="progress-rail" aria-live="polite">

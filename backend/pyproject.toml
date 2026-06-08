@@ -6,6 +6,7 @@ requires-python = ">=3.11"
 dependencies = [
   "dramatiq[redis]>=1.17.0",
   "fastapi>=0.115.0",
+  "google-genai>=1.74.0",
   "httpx>=0.27.0",
   "langgraph>=0.2.60",
   "logfire[fastapi,google-genai,httpx,psycopg]>=4.15.0",

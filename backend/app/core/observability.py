@@ -33,7 +33,7 @@ def configure_observability(settings: Settings, *, app: FastAPI | None = None) -
         os.environ.setdefault("OTEL_SEMCONV_STABILITY_OPT_IN", "gen_ai_latest_experimental")
         os.environ.setdefault(
             "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT",
-            "SPAN_AND_EVENT",
+            "SPAN_ONLY",
         )
 
     try:

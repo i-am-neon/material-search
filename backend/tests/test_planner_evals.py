@@ -1,7 +1,8 @@
 import json
 import re
+from types import SimpleNamespace
 
-from app.model_services.planning import GeminiMaterialPlannerClient
+from app.model_services.planning import GeminiMaterialPlannerClient, gemini_response_attributes
 from app.search.schemas import SegmentMatchRequest
 
 
@@ -301,6 +302,43 @@ def test_planner_repairs_failed_sam3_prompt(monkeypatch):
         "green ceramic tile wall",
     ]
     assert repair.reason == "The wall surface is more segmentable than one tile."
+
+
+def test_gemini_response_attributes_include_tool_and_thought_metadata():
+    response = SimpleNamespace(
+        candidates=[
+            SimpleNamespace(
+                content=SimpleNamespace(
+                    parts=[
+                        SimpleNamespace(
+                            text='{"ok": true}',
+                            thought=True,
+                            thought_signature=b"opaque-signature",
+                            function_call={"name": "search_catalog"},
+                        )
+                    ]
+                )
+            )
+        ],
+        usage_metadata=SimpleNamespace(
+            prompt_token_count=10,
+            candidates_token_count=20,
+            thoughts_token_count=30,
+            total_token_count=60,
+        ),
+    )
+
+    assert gemini_response_attributes(response) == {
+        "gemini_candidate_count": 1,
+        "gemini_function_call_count": 1,
+        "gemini_thought_part_count": 1,
+        "gemini_thought_signature_count": 1,
+        "gemini_thought_signature_lengths": [16],
+        "gemini_prompt_token_count": 10,
+        "gemini_candidates_token_count": 20,
+        "gemini_thoughts_token_count": 30,
+        "gemini_total_token_count": 60,
+    }
 
 
 def _fake_image_get(*args, **kwargs):
