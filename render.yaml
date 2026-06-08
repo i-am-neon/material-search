@@ -33,6 +33,8 @@ services:
         value: material-search-api
       - key: LOGFIRE_BASE_URL
         value: https://logfire-us.pydantic.dev
+      - key: LOGFIRE_INSTRUMENT_PSYCOPG
+        value: "false"
       - key: LOGFIRE_INSTRUMENT_GOOGLE_GENAI
         value: "true"
       - key: LOGFIRE_CAPTURE_LLM_CONTENT

@@ -61,7 +61,7 @@ class Settings(BaseSettings):
         default=True, validation_alias="LOGFIRE_INSTRUMENT_HTTPX"
     )
     logfire_instrument_psycopg: bool = Field(
-        default=True, validation_alias="LOGFIRE_INSTRUMENT_PSYCOPG"
+        default=False, validation_alias="LOGFIRE_INSTRUMENT_PSYCOPG"
     )
     logfire_instrument_google_genai: bool = Field(
         default=True, validation_alias="LOGFIRE_INSTRUMENT_GOOGLE_GENAI"

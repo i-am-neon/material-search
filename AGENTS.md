@@ -39,6 +39,11 @@ Build incrementally from the target architecture, starting with project scaffold
 - If backend dependencies are missing or stale, refresh the venv with `cd backend && uv pip install --python .venv/bin/python -e ".[dev]"`.
 - For direct backend commands, prefer `backend/.venv/bin/python -m pytest` and `backend/.venv/bin/ruff` over bare executable names.
 
+## Logfire Investigation
+
+- Use `scripts/logfire-query` for Logfire investigations. It loads `backend/.env`, expects `LOGFIRE_READ_TOKEN`, and must never print or commit tokens.
+- For copied Logfire trace links, start with `scripts/logfire-query investigate '<url>' --until now` to summarize the trace, recent errors, and slow spans in the linked time window.
+
 ## Frontend UI Guidance
 
 - Whenever updating the UI, treat Storybook as a source of truth for the intended component states and user flows. Add or update stories alongside UI changes so the workbench, region review, matching, failure, and cart states remain easy to inspect independently of the app route.

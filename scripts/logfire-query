@@ -1,0 +1,375 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+from textwrap import shorten
+from urllib.parse import parse_qs, unquote_plus, urlparse
+
+
+ROOT = Path(__file__).resolve().parents[1]
+BACKEND_DIR = ROOT / "backend"
+BACKEND_PYTHON = BACKEND_DIR / ".venv" / "bin" / "python"
+DEFAULT_BASE_URL = "https://logfire-us.pydantic.dev"
+
+
+def _reexec_with_backend_python() -> None:
+    if os.environ.get("MATERIAL_SEARCH_LOGFIRE_QUERY_REEXEC"):
+        return
+    if not BACKEND_PYTHON.exists():
+        return
+    if Path(sys.executable).resolve() == BACKEND_PYTHON.resolve():
+        return
+    os.environ["MATERIAL_SEARCH_LOGFIRE_QUERY_REEXEC"] = "1"
+    os.execv(str(BACKEND_PYTHON), [str(BACKEND_PYTHON), __file__, *sys.argv[1:]])
+
+
+def _load_env_file(path: Path) -> None:
+    if not path.exists():
+        return
+    for raw_line in path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip("'\"")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+def _parse_time(value: str | None) -> datetime | None:
+    if value is None or value == "":
+        return None
+    if value.lower() == "now":
+        return datetime.now(UTC)
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _format_time(value: object) -> str:
+    if isinstance(value, datetime):
+        return value.astimezone(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _sql_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _trace_parts(value: str) -> dict[str, str]:
+    parsed = urlparse(value)
+    if not parsed.scheme:
+        return {"trace_id": value}
+
+    params = parse_qs(parsed.query)
+    parts: dict[str, str] = {}
+    for source_key, target_key in (
+        ("traceId", "trace_id"),
+        ("spanId", "span_id"),
+        ("since", "since"),
+        ("until", "until"),
+    ):
+        if params.get(source_key):
+            parts[target_key] = params[source_key][0]
+
+    if params.get("q"):
+        q = unquote_plus(params["q"][0])
+        for key, pattern in (
+            ("trace_id", r"trace_id\s*=\s*'([0-9a-fA-F]+)'"),
+            ("span_id", r"span_id\s*=\s*'([0-9a-fA-F]+)'"),
+        ):
+            match = re.search(pattern, q)
+            if match and key not in parts:
+                parts[key] = match.group(1)
+
+    return parts
+
+
+def _client():
+    try:
+        from logfire.query_client import LogfireQueryClient
+    except ImportError as exc:
+        raise SystemExit(
+            "logfire is not importable. Refresh backend deps with: "
+            'cd backend && uv pip install --python .venv/bin/python -e ".[dev]"'
+        ) from exc
+
+    token = os.environ.get("LOGFIRE_READ_TOKEN", "")
+    if not token:
+        raise SystemExit(
+            "LOGFIRE_READ_TOKEN is required. Add it to backend/.env or export it in your shell."
+        )
+    base_url = os.environ.get("LOGFIRE_BASE_URL") or DEFAULT_BASE_URL
+    return LogfireQueryClient(read_token=token, base_url=base_url)
+
+
+def _rows(sql: str, *, since: str | None, until: str | None, limit: int) -> list[dict[str, object]]:
+    with _client() as client:
+        result = client.query_json_rows(
+            sql=sql,
+            min_timestamp=_parse_time(since),
+            max_timestamp=_parse_time(until),
+            limit=limit,
+        )
+    if isinstance(result, dict):
+        return result.get("rows", [])
+    return result.rows
+
+
+def _print_table(rows: list[dict[str, object]], columns: list[tuple[str, str, int]]) -> None:
+    if not rows:
+        print("_No rows._")
+        return
+
+    headers = [label for _, label, _ in columns]
+    print("| " + " | ".join(headers) + " |")
+    print("| " + " | ".join("---" for _ in headers) + " |")
+    for row in rows:
+        cells = []
+        for key, _, width in columns:
+            value = _format_time(row.get(key)) if "timestamp" in key else str(row.get(key) or "")
+            value = shorten(value.replace("\n", " "), width=width, placeholder="...")
+            cells.append(value.replace("|", "\\|"))
+        print("| " + " | ".join(cells) + " |")
+
+
+def _trace_sql(trace_id: str, span_id: str | None, limit: int) -> str:
+    where = [f"trace_id = {_sql_literal(trace_id)}"]
+    if span_id:
+        where.append(
+            "(span_id = "
+            f"{_sql_literal(span_id)} OR parent_span_id = {_sql_literal(span_id)} OR kind != 'span')"
+        )
+    return f"""
+SELECT
+  start_timestamp,
+  duration,
+  kind,
+  level,
+  service_name,
+  span_name,
+  message,
+  parent_span_id,
+  span_id,
+  is_exception,
+  exception_type,
+  exception_message,
+  http_response_status_code,
+  otel_status_code
+FROM records
+WHERE {" AND ".join(where)}
+ORDER BY start_timestamp
+LIMIT {limit}
+"""
+
+
+def _errors_sql(limit: int) -> str:
+    return f"""
+SELECT
+  start_timestamp,
+  duration,
+  service_name,
+  span_name,
+  message,
+  trace_id,
+  span_id,
+  exception_type,
+  exception_message,
+  http_response_status_code,
+  otel_status_code
+FROM records
+WHERE is_exception OR level = 'error' OR otel_status_code = 'ERROR'
+ORDER BY start_timestamp DESC
+LIMIT {limit}
+"""
+
+
+def _slow_spans_sql(min_duration: float, limit: int) -> str:
+    return f"""
+SELECT
+  start_timestamp,
+  duration,
+  service_name,
+  span_name,
+  message,
+  trace_id,
+  span_id,
+  http_response_status_code,
+  otel_status_code
+FROM records
+WHERE kind = 'span' AND duration >= {min_duration}
+ORDER BY duration DESC
+LIMIT {limit}
+"""
+
+
+def trace_command(args: argparse.Namespace) -> None:
+    parts = _trace_parts(args.trace)
+    trace_id = parts.get("trace_id")
+    if not trace_id:
+        raise SystemExit("Could not find a trace_id in the provided value.")
+    span_id = args.span or parts.get("span_id")
+    since = args.since or parts.get("since")
+    until = args.until or parts.get("until")
+
+    rows = _rows(_trace_sql(trace_id, span_id if args.children_only else None, args.limit), since=since, until=until, limit=args.limit)
+    print(f"**Trace `{trace_id}`**")
+    if span_id:
+        print(f"Anchor span: `{span_id}`")
+    if since or until:
+        print(f"Window: `{since or 'default'}` to `{until or 'default'}`")
+    _print_table(
+        rows,
+        [
+            ("start_timestamp", "time", 24),
+            ("duration", "sec", 8),
+            ("level", "level", 8),
+            ("service_name", "service", 24),
+            ("kind", "kind", 12),
+            ("span_name", "span", 42),
+            ("message", "message", 90),
+            ("exception_type", "exception", 28),
+            ("http_response_status_code", "http", 8),
+            ("otel_status_code", "otel", 8),
+        ],
+    )
+
+
+def errors_command(args: argparse.Namespace) -> None:
+    rows = _rows(_errors_sql(args.limit), since=args.since, until=args.until, limit=args.limit)
+    print(f"**Errors** `{args.since or 'default'}` to `{args.until or 'default'}`")
+    _print_table(
+        rows,
+        [
+            ("start_timestamp", "time", 24),
+            ("duration", "sec", 8),
+            ("service_name", "service", 24),
+            ("span_name", "span", 42),
+            ("message", "message", 90),
+            ("exception_type", "exception", 28),
+            ("exception_message", "exception message", 60),
+            ("trace_id", "trace", 34),
+        ],
+    )
+
+
+def slow_spans_command(args: argparse.Namespace) -> None:
+    rows = _rows(
+        _slow_spans_sql(args.min_duration, args.limit),
+        since=args.since,
+        until=args.until,
+        limit=args.limit,
+    )
+    print(
+        f"**Slow spans >= {args.min_duration:g}s** "
+        f"`{args.since or 'default'}` to `{args.until or 'default'}`"
+    )
+    _print_table(
+        rows,
+        [
+            ("duration", "sec", 8),
+            ("start_timestamp", "time", 24),
+            ("service_name", "service", 24),
+            ("span_name", "span", 42),
+            ("message", "message", 90),
+            ("trace_id", "trace", 34),
+        ],
+    )
+
+
+def investigate_command(args: argparse.Namespace) -> None:
+    parts = _trace_parts(args.trace)
+    trace_id = parts.get("trace_id")
+    if not trace_id:
+        raise SystemExit("Could not find a trace_id in the provided value.")
+
+    since = args.since or parts.get("since")
+    until = args.until or "now"
+    span_id = args.span or parts.get("span_id")
+
+    trace_args = argparse.Namespace(
+        trace=trace_id,
+        span=span_id,
+        since=since,
+        until=until,
+        limit=args.trace_limit,
+        children_only=False,
+    )
+    trace_command(trace_args)
+    print()
+    errors_command(argparse.Namespace(since=since, until=until, limit=args.limit))
+    print()
+    slow_spans_command(
+        argparse.Namespace(
+            since=since,
+            until=until,
+            limit=args.limit,
+            min_duration=args.min_duration,
+        )
+    )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Query Logfire for the material-search project.",
+    )
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    trace = subparsers.add_parser("trace", help="Print records for a trace ID or Logfire trace URL.")
+    trace.add_argument("trace", help="Trace ID or Logfire URL.")
+    trace.add_argument("--span", help="Anchor span ID. URL spanId is used when omitted.")
+    trace.add_argument("--children-only", action="store_true", help="Limit spans to the anchor span and its direct children.")
+    trace.add_argument("--since", help="ISO timestamp. URL since is used when omitted.")
+    trace.add_argument("--until", help="ISO timestamp or 'now'. URL until is used when omitted.")
+    trace.add_argument("--limit", type=int, default=200)
+    trace.set_defaults(func=trace_command)
+
+    errors = subparsers.add_parser("errors", help="Print recent errors in a time window.")
+    errors.add_argument("--since", required=True, help="ISO timestamp.")
+    errors.add_argument("--until", default="now", help="ISO timestamp or 'now'.")
+    errors.add_argument("--limit", type=int, default=50)
+    errors.set_defaults(func=errors_command)
+
+    slow = subparsers.add_parser("slow-spans", help="Print slow spans in a time window.")
+    slow.add_argument("--since", required=True, help="ISO timestamp.")
+    slow.add_argument("--until", default="now", help="ISO timestamp or 'now'.")
+    slow.add_argument("--min-duration", type=float, default=1.0)
+    slow.add_argument("--limit", type=int, default=50)
+    slow.set_defaults(func=slow_spans_command)
+
+    investigate = subparsers.add_parser(
+        "investigate",
+        help="Print the trace, errors, and slow spans for a copied Logfire trace URL.",
+    )
+    investigate.add_argument("trace", help="Trace ID or Logfire URL.")
+    investigate.add_argument("--span", help="Anchor span ID. URL spanId is used when omitted.")
+    investigate.add_argument("--since", help="ISO timestamp. URL since is used when omitted.")
+    investigate.add_argument("--until", default="now", help="ISO timestamp or 'now'.")
+    investigate.add_argument("--min-duration", type=float, default=1.0)
+    investigate.add_argument("--trace-limit", type=int, default=250)
+    investigate.add_argument("--limit", type=int, default=50)
+    investigate.set_defaults(func=investigate_command)
+
+    return parser
+
+
+def main() -> None:
+    _reexec_with_backend_python()
+    _load_env_file(BACKEND_DIR / ".env")
+    args = build_parser().parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

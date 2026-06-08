@@ -17,6 +17,12 @@ def test_observability_can_be_disabled_without_logfire_side_effects():
         active_span.set_attributes({"count": 1})
 
 
+def test_psycopg_logfire_instrumentation_is_off_by_default(monkeypatch):
+    monkeypatch.delenv("LOGFIRE_INSTRUMENT_PSYCOPG", raising=False)
+
+    assert Settings(_env_file=None).logfire_instrument_psycopg is False
+
+
 def test_search_source_kind_labels_material_search_inputs():
     object_key_source = search_source_kind(
         image_object_key="uploads/a/reference.jpg",
