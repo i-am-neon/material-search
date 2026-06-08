@@ -165,13 +165,6 @@
       "taxonomy_path": ["FF&E", "Furniture"],
       "material_family": "furniture",
       "aliases": ["furniture", "chair", "stool", "table", "sofa", "bench", "ottoman", "cabinet"]
-    },
-    {
-      "group": "FF&E",
-      "name": "Decor & Accessories",
-      "taxonomy_path": ["FF&E", "Decor & Accessories"],
-      "material_family": "decor",
-      "aliases": ["decor", "accessory", "accessories", "mirror", "vase", "basket", "rug", "art"]
     }
   ]
 }

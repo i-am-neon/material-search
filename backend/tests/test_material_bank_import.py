@@ -29,7 +29,6 @@ def test_load_category_plan_contains_demo_scope():
         "Hardware",
         "Lighting",
         "Furniture",
-        "Decor & Accessories",
     ]
     assert plan.default_per_category == 50
 
