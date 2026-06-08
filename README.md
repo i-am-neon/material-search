@@ -112,6 +112,37 @@ sequenceDiagram
   Graph->>DB: Persist recovered surface and continue matching
 ```
 
+## Mood Board Discovery
+
+The current demo is strongest when the designer gives specific intent, such as
+"find the countertop and rug" or "match the wall tile." Dense mood boards expose
+a different problem: before SAM3 can segment anything, the system has to discover
+every small material sample that might be worth matching. A planner-first flow is
+brittle here because the vision LLM has to notice every partially visible swatch,
+tile, hardware piece, and stone sample from the full image before any
+segmentation evidence exists.
+
+The project includes mood-board planner evals to make this limitation visible,
+but the production-grade architecture should not solve it with brute-force
+keyword prompts or dozens of SAM3 calls. The better next step is a dedicated
+region-proposal stage:
+
+1. A best-in-class multimodal image model proposes all visible candidate material
+   regions in one structured call, including boxes, labels, and confidence.
+2. Code validates coordinates, filters impossible boxes, dedupes overlaps, and
+   creates stable candidate IDs.
+3. SAM3 refines accepted candidate boxes into tighter masks/crops when the
+   deployed SAM3 API supports box or region prompts. Until then, code can crop
+   directly from validated proposal boxes as a fallback.
+4. A planner/selector LLM classifies each candidate as material vs. prop,
+   selects one explicit catalog category, and decides whether it should be
+   matched.
+5. Accepted crops flow through the existing SigLIP embedding and pgvector
+   retrieval pipeline.
+
+This keeps the demo cost-bounded while showing the intended production path for
+dense mood boards: proposal, validation, refinement, classification, retrieval.
+
 ## Data And Trust Boundaries
 
 Models are allowed to decide:
