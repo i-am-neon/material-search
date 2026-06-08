@@ -108,6 +108,39 @@ Follow-up note: add planner evals later for constraint handling, including a
 case like "Find materials like the floor and green seating, but avoid anything
 too glossy."
 
+## Future Result Deduping
+
+Current matching should preserve raw evidence: if SAM3 returns multiple regions
+for one planned target, each region is cropped, embedded, matched, and persisted
+as its own `material_search_regions` row with its own ranked
+`material_search_matches`. Do not merge those region records before retrieval;
+separate regions are useful for debugging, provenance, and region-level UI.
+
+A future product-facing dedupe layer can sit on top of those raw region match
+sets. For regions that share a planned `target_id`, group matches by
+`catalog_item_id`, keep the best similarity as the displayed score, and preserve
+the per-region provenance behind it:
+
+```text
+target_id: chair
+catalog_item_id: material-a
+best_similarity: 0.91
+best_region_id: chair__sam3_region_1
+region_hits:
+  - region_id: chair__sam3_region_1, similarity: 0.91, rank: 1
+  - region_id: chair__sam3_region_2, similarity: 0.88, rank: 1
+```
+
+Recommended first-pass ranking: sort by best similarity, then by the number of
+same-target regions that matched the item, then by best rank. If recurring
+evidence across multiple regions needs to matter more, add only a small bounded
+boost so one excellent crop can still outrank several weak matches.
+
+This is distinct from deduping SAM3 regions themselves. Catalog-result deduping
+uses stable product IDs and is safe to present as "this material matched multiple
+regions." Region deduping would require box or mask IoU and should be treated as
+a separate segmentation-quality feature.
+
 ## Scalability
 
 - Treat each material search as a durable run, not a one-off in-memory request.
