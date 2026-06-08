@@ -27,18 +27,28 @@ class FakeGeminiResponse:
 
 
 class FakeGeminiModels:
-    def __init__(self, response: FakeGeminiResponse):
-        self.response = response
+    def __init__(self, response: FakeGeminiResponse | list):
+        self.responses = response if isinstance(response, list) else [response]
         self.requests = []
 
     def generate_content(self, **kwargs):
         self.requests.append(kwargs)
-        return self.response
+        response = self.responses.pop(0)
+        if isinstance(response, Exception):
+            raise response
+        return response
 
 
 class FakeGeminiClient:
-    def __init__(self, response: FakeGeminiResponse):
+    def __init__(self, response: FakeGeminiResponse | list):
         self.models = FakeGeminiModels(response)
+
+
+class FakeGeminiError(Exception):
+    def __init__(self, message: str, *, code: int | None = None, status: str | None = None):
+        super().__init__(message)
+        self.code = code
+        self.status = status
 
 
 def test_planner_eval_single_target_material_plan(monkeypatch):
@@ -302,6 +312,98 @@ def test_planner_repairs_failed_sam3_prompt(monkeypatch):
         "green ceramic tile wall",
     ]
     assert repair.reason == "The wall surface is more segmentable than one tile."
+
+
+def test_planner_retries_transient_gemini_errors(monkeypatch):
+    monkeypatch.setattr("app.model_services.planning.httpx.get", _fake_image_get)
+    sleep_delays = []
+    genai_client = FakeGeminiClient(
+        [
+            FakeGeminiError(
+                "503 UNAVAILABLE. This model is currently experiencing high demand.",
+                code=503,
+                status="UNAVAILABLE",
+            ),
+            FakeGeminiError(
+                "503 UNAVAILABLE. This model is currently experiencing high demand.",
+                code=503,
+                status="UNAVAILABLE",
+            ),
+            FakeGeminiResponse(
+                json.dumps(
+                    {
+                        "user_intent_summary": "Find green upholstery.",
+                        "avoid": [],
+                        "targets": [
+                            {
+                                "target_id": "green_chair_upholstery",
+                                "label": "Green Chair Upholstery",
+                                "sam3_prompt": "green woven chair upholstery",
+                                "material_family_hint": "textile",
+                                "reason": "The user asked for the green chair fabric.",
+                                "priority": 1,
+                                "max_regions": 1,
+                            }
+                        ],
+                    }
+                )
+            ),
+        ],
+    )
+
+    plan = GeminiMaterialPlannerClient(
+        api_key="key",
+        genai_client=genai_client,
+        retry_attempts=3,
+        retry_base_delay_seconds=0.5,
+        retry_max_delay_seconds=1.0,
+        retry_sleep=sleep_delays.append,
+    ).plan_material_search(
+        SegmentMatchRequest(
+            image_url="https://example.com/room.png",
+            prompt="Find materials like the green chair upholstery.",
+            max_regions=1,
+        )
+    )
+
+    assert plan.targets[0].target_id == "green_chair_upholstery"
+    assert len(genai_client.models.requests) == 3
+    assert sleep_delays == [0.5, 1.0]
+
+
+def test_planner_does_not_retry_non_transient_gemini_errors(monkeypatch):
+    monkeypatch.setattr("app.model_services.planning.httpx.get", _fake_image_get)
+    sleep_delays = []
+    genai_client = FakeGeminiClient(
+        [
+            FakeGeminiError(
+                "400 INVALID_ARGUMENT. Request payload is invalid.",
+                code=400,
+                status="INVALID_ARGUMENT",
+            ),
+        ],
+    )
+
+    try:
+        GeminiMaterialPlannerClient(
+            api_key="key",
+            genai_client=genai_client,
+            retry_attempts=3,
+            retry_sleep=sleep_delays.append,
+        ).plan_material_search(
+            SegmentMatchRequest(
+                image_url="https://example.com/room.png",
+                prompt="Find materials like the green chair upholstery.",
+                max_regions=1,
+            )
+        )
+    except FakeGeminiError:
+        pass
+    else:
+        raise AssertionError("Expected non-transient Gemini error to be raised")
+
+    assert len(genai_client.models.requests) == 1
+    assert sleep_delays == []
 
 
 def test_gemini_response_attributes_include_tool_and_thought_metadata():

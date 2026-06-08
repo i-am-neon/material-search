@@ -47,5 +47,6 @@ Build incrementally from the target architecture, starting with project scaffold
 
 - Work directly on `main` by default. Do not create or switch to a new branch unless the user explicitly asks for one.
 - Manage git end to end for repo work: inspect status, stage intentional changes, commit with clear messages, and prepare pushes/PRs when the user asks for publication.
+- Whenever you finish a work item, ask the user whether they want you to commit the changes and push to `main`.
 - Before committing, inspect status and diffs and commit only the work you performed. Other agents may be working in the repo in parallel, so do not stage or commit unrelated modified, deleted, or untracked files.
 - Never revert user changes or use destructive git commands unless the user explicitly requests that exact operation.

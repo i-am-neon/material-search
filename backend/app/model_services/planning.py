@@ -1,5 +1,6 @@
 import json
 import re
+import time
 from abc import ABC, abstractmethod
 from pathlib import PurePath
 from typing import Any
@@ -12,6 +13,11 @@ from app.core.observability import search_source_kind, span
 from app.search.schemas import MaterialSearchPlan, PlannedMaterialTarget, SegmentMatchRequest
 
 GEMINI_MODEL_ID = "gemini-3.5-flash"
+DEFAULT_GEMINI_RETRY_ATTEMPTS = 4
+DEFAULT_GEMINI_RETRY_BASE_DELAY_SECONDS = 1.0
+DEFAULT_GEMINI_RETRY_MAX_DELAY_SECONDS = 12.0
+RETRYABLE_GEMINI_STATUS_CODES = {429, 500, 502, 503, 504}
+RETRYABLE_GEMINI_STATUSES = {"RESOURCE_EXHAUSTED", "UNAVAILABLE"}
 
 
 class MaterialPlannerClient(ABC):
@@ -53,6 +59,10 @@ class GeminiMaterialPlannerClient(MaterialPlannerClient):
         uploaded_image_bucket: str = "uploaded-images",
         timeout_seconds: float = 120.0,
         genai_client: Any | None = None,
+        retry_attempts: int = DEFAULT_GEMINI_RETRY_ATTEMPTS,
+        retry_base_delay_seconds: float = DEFAULT_GEMINI_RETRY_BASE_DELAY_SECONDS,
+        retry_max_delay_seconds: float = DEFAULT_GEMINI_RETRY_MAX_DELAY_SECONDS,
+        retry_sleep: Any = time.sleep,
     ):
         self.api_key = api_key
         self.model_id = model_id
@@ -61,6 +71,10 @@ class GeminiMaterialPlannerClient(MaterialPlannerClient):
         self.uploaded_image_bucket = uploaded_image_bucket
         self.timeout_seconds = timeout_seconds
         self._genai_client = genai_client
+        self.retry_attempts = max(1, retry_attempts)
+        self.retry_base_delay_seconds = max(0.0, retry_base_delay_seconds)
+        self.retry_max_delay_seconds = max(0.0, retry_max_delay_seconds)
+        self.retry_sleep = retry_sleep
 
     def plan_material_search(self, request: SegmentMatchRequest) -> MaterialSearchPlan:
         image_bytes, mime_type = self._load_image(request)
@@ -78,7 +92,8 @@ class GeminiMaterialPlannerClient(MaterialPlannerClient):
             image_mime_type=mime_type,
             image_size_bytes=len(image_bytes),
         ) as active_span:
-            response = client.models.generate_content(
+            response, attempt_count = self._generate_content_with_retries(
+                client=client,
                 model=self.model_id,
                 contents=[
                     _planner_prompt(request.prompt, request.max_regions),
@@ -90,7 +105,12 @@ class GeminiMaterialPlannerClient(MaterialPlannerClient):
                     http_options=types.HttpOptions(timeout=int(self.timeout_seconds * 1000)),
                 ),
             )
-            active_span.set_attributes(gemini_response_attributes(response))
+            active_span.set_attributes(
+                {
+                    **gemini_response_attributes(response),
+                    "gemini_attempt_count": attempt_count,
+                }
+            )
             text = _first_text_part(response)
             plan = MaterialSearchPlan.model_validate_json(_strip_json_fence(text))
             normalized = _normalize_plan(plan, max_regions=request.max_regions)
@@ -133,7 +153,8 @@ class GeminiMaterialPlannerClient(MaterialPlannerClient):
             image_mime_type=mime_type,
             image_size_bytes=len(image_bytes),
         ) as active_span:
-            response = client.models.generate_content(
+            response, attempt_count = self._generate_content_with_retries(
+                client=client,
                 model=self.model_id,
                 contents=[
                     _repair_prompt(
@@ -150,7 +171,12 @@ class GeminiMaterialPlannerClient(MaterialPlannerClient):
                     http_options=types.HttpOptions(timeout=int(self.timeout_seconds * 1000)),
                 ),
             )
-            active_span.set_attributes(gemini_response_attributes(response))
+            active_span.set_attributes(
+                {
+                    **gemini_response_attributes(response),
+                    "gemini_attempt_count": attempt_count,
+                }
+            )
             text = _first_text_part(response)
             repair = SegmentationPromptRepair.model_validate_json(_strip_json_fence(text))
             normalized = _normalize_prompt_repair(
@@ -175,6 +201,37 @@ class GeminiMaterialPlannerClient(MaterialPlannerClient):
         if self._genai_client is None:
             self._genai_client = genai.Client(api_key=self.api_key)
         return self._genai_client, types
+
+    def _generate_content_with_retries(
+        self,
+        *,
+        client: Any,
+        model: str,
+        contents: list[Any],
+        config: Any,
+    ) -> tuple[Any, int]:
+        last_error: BaseException | None = None
+        for attempt in range(1, self.retry_attempts + 1):
+            try:
+                response = client.models.generate_content(
+                    model=model,
+                    contents=contents,
+                    config=config,
+                )
+                return response, attempt
+            except Exception as exc:
+                if not _is_retryable_gemini_error(exc) or attempt == self.retry_attempts:
+                    raise
+                last_error = exc
+                self.retry_sleep(self._retry_delay_seconds(attempt))
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("Gemini request failed before any retry attempt ran")
+
+    def _retry_delay_seconds(self, completed_attempt: int) -> float:
+        delay = self.retry_base_delay_seconds * (2 ** (completed_attempt - 1))
+        return min(delay, self.retry_max_delay_seconds)
 
     def _load_image(self, request: SegmentMatchRequest) -> tuple[bytes, str]:
         if request.image_url:
@@ -361,6 +418,24 @@ def gemini_response_attributes(response: Any) -> dict[str, Any]:
         "gemini_thoughts_token_count": _get_value(usage_metadata, "thoughts_token_count"),
         "gemini_total_token_count": _get_value(usage_metadata, "total_token_count"),
     }
+
+
+def _is_retryable_gemini_error(exc: Exception) -> bool:
+    code = _get_value(exc, "code")
+    if isinstance(code, int) and code in RETRYABLE_GEMINI_STATUS_CODES:
+        return True
+
+    response = _get_value(exc, "response")
+    status_code = _get_value(response, "status_code")
+    if isinstance(status_code, int) and status_code in RETRYABLE_GEMINI_STATUS_CODES:
+        return True
+
+    status = _get_value(exc, "status")
+    if isinstance(status, str) and status.upper() in RETRYABLE_GEMINI_STATUSES:
+        return True
+
+    text = str(exc).upper()
+    return any(status in text for status in RETRYABLE_GEMINI_STATUSES)
 
 
 def _get_value(value: Any, key: str) -> Any:
