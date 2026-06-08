@@ -18,6 +18,28 @@ class FakeResponse:
         return self.payload
 
 
+class FakeGeminiResponse:
+    def __init__(self, text: str):
+        self.text = text
+        self.candidates = []
+        self.usage_metadata = None
+
+
+class FakeGeminiModels:
+    def __init__(self, response: FakeGeminiResponse):
+        self.response = response
+        self.requests = []
+
+    def generate_content(self, **kwargs):
+        self.requests.append(kwargs)
+        return self.response
+
+
+class FakeGeminiClient:
+    def __init__(self, response: FakeGeminiResponse):
+        self.models = FakeGeminiModels(response)
+
+
 def test_planner_eval_single_target_material_plan(monkeypatch):
     plan = _plan_from_model_payload(
         monkeypatch,
@@ -233,6 +255,54 @@ def test_planner_eval_stable_target_ids_for_overlapping_labels(monkeypatch):
     assert len({target.target_id for target in plan.targets}) == len(plan.targets)
 
 
+def test_planner_repairs_failed_sam3_prompt(monkeypatch):
+    monkeypatch.setattr("app.model_services.planning.httpx.get", _fake_image_get)
+    genai_client = FakeGeminiClient(
+        FakeGeminiResponse(
+            json.dumps(
+                {
+                    "target_id": "green_shower_tile",
+                    "failed_prompt": "green square tile",
+                    "alternate_prompts": [
+                        "green square tile",
+                        " dark green tiled shower wall ",
+                        "green ceramic tile wall",
+                    ],
+                    "reason": "The wall surface is more segmentable than one tile.",
+                }
+            )
+        ),
+    )
+
+    repair = GeminiMaterialPlannerClient(
+        api_key="key",
+        genai_client=genai_client,
+    ).repair_segmentation_prompts(
+        request=SegmentMatchRequest(
+            image_url="https://example.com/room.png",
+            prompt="Find the green shower tile.",
+            max_regions=1,
+        ),
+        target=_planned_target(
+            target_id="green_shower_tile",
+            label="Green Shower Tile",
+            sam3_prompt="green square tile",
+            material_family_hint="tile",
+            reason="The user asked for the shower tile.",
+        ),
+        failed_prompt="green square tile",
+        max_alternates=2,
+    )
+
+    assert repair.target_id == "green_shower_tile"
+    assert repair.failed_prompt == "green square tile"
+    assert repair.alternate_prompts == [
+        "dark green tiled shower wall",
+        "green ceramic tile wall",
+    ]
+    assert repair.reason == "The wall surface is more segmentable than one tile."
+
+
 def _fake_image_get(*args, **kwargs):
     return FakeResponse()
 
@@ -245,12 +315,14 @@ def _plan_from_model_payload(
     max_regions: int,
 ):
     monkeypatch.setattr("app.model_services.planning.httpx.get", _fake_image_get)
-    monkeypatch.setattr(
-        "app.model_services.planning.httpx.post",
-        lambda *args, **kwargs: FakeResponse(payload=_gemini_payload(plan_payload)),
+    genai_client = FakeGeminiClient(
+        FakeGeminiResponse(json.dumps(plan_payload)),
     )
 
-    return GeminiMaterialPlannerClient(api_key="key").plan_material_search(
+    return GeminiMaterialPlannerClient(
+        api_key="key",
+        genai_client=genai_client,
+    ).plan_material_search(
         SegmentMatchRequest(
             image_url="https://example.com/room.png",
             prompt=prompt,
@@ -271,20 +343,25 @@ def _target_payload(index: int, *, max_regions: int) -> dict:
     }
 
 
-def _gemini_payload(plan: dict) -> dict:
-    return {
-        "candidates": [
-            {
-                "content": {
-                    "parts": [
-                        {
-                            "text": json.dumps(plan),
-                        }
-                    ]
-                }
-            }
-        ]
-    }
+def _planned_target(
+    *,
+    target_id: str,
+    label: str,
+    sam3_prompt: str,
+    material_family_hint: str,
+    reason: str,
+):
+    from app.search.schemas import PlannedMaterialTarget
+
+    return PlannedMaterialTarget(
+        target_id=target_id,
+        label=label,
+        sam3_prompt=sam3_prompt,
+        material_family_hint=material_family_hint,
+        reason=reason,
+        priority=1,
+        max_regions=1,
+    )
 
 
 def assert_segmentable_prompt(prompt: str) -> None:

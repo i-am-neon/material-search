@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     logfire_instrument_psycopg: bool = Field(
         default=True, validation_alias="LOGFIRE_INSTRUMENT_PSYCOPG"
     )
+    logfire_instrument_google_genai: bool = Field(
+        default=True, validation_alias="LOGFIRE_INSTRUMENT_GOOGLE_GENAI"
+    )
+    logfire_capture_llm_content: bool = Field(
+        default=True, validation_alias="LOGFIRE_CAPTURE_LLM_CONTENT"
+    )
 
     @field_validator("embedding_service_url", "sam3_service_url", "supabase_url", mode="before")
     @classmethod

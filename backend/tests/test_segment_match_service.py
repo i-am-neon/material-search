@@ -6,6 +6,7 @@ import pytest
 
 from app.catalog.schemas import CatalogItem, CatalogMatch
 from app.model_services.embeddings import ImageEmbedding
+from app.model_services.planning import SegmentationPromptRepair
 from app.model_services.segmentation import SegmentationRegion, SegmentationResult
 from app.search.artifacts import RegionArtifact
 from app.search.schemas import (
@@ -82,6 +83,51 @@ class FakePlannerClient:
         )
 
 
+class RepairingPlannerClient:
+    def __init__(self):
+        self.repair_calls: list[dict] = []
+
+    def plan_material_search(self, request: SegmentMatchRequest) -> MaterialSearchPlan:
+        return MaterialSearchPlan(
+            user_intent_summary="Search for green shower tile",
+            avoid=[],
+            targets=[
+                PlannedMaterialTarget(
+                    target_id="green_shower_tile",
+                    label="Green Shower Tile",
+                    sam3_prompt="green square tile",
+                    material_family_hint="tile",
+                    reason="The user asked for the green shower tile.",
+                    priority=1,
+                    max_regions=1,
+                )
+            ],
+        )
+
+    def repair_segmentation_prompts(
+        self,
+        *,
+        request: SegmentMatchRequest,
+        target: PlannedMaterialTarget,
+        failed_prompt: str,
+        max_alternates: int = 3,
+    ):
+        self.repair_calls.append(
+            {
+                "prompt": request.prompt,
+                "target_id": target.target_id,
+                "failed_prompt": failed_prompt,
+                "max_alternates": max_alternates,
+            }
+        )
+        return SegmentationPromptRepair(
+            target_id=target.target_id,
+            failed_prompt=failed_prompt,
+            alternate_prompts=["dark green tiled shower wall", "green ceramic tile wall"],
+            reason="Target the larger tiled wall surface instead of one tile.",
+        )
+
+
 class MultiTargetPlannerClient:
     def plan_material_search(self, request: SegmentMatchRequest) -> MaterialSearchPlan:
         return MaterialSearchPlan(
@@ -124,6 +170,49 @@ class UnsupportedIntentPlannerClient:
 class FailingSam3Client:
     def segment_image(self, **kwargs):
         raise RuntimeError("SAM3 unavailable")
+
+
+class ZeroThenRepairSam3Client:
+    def __init__(self):
+        self.calls: list[dict] = []
+
+    def segment_image(
+        self,
+        *,
+        prompt: str,
+        image_object_key: str | None = None,
+        image_url: str | None = None,
+        confidence_threshold: float = 0.5,
+        max_regions: int = 20,
+        include_masks: bool = False,
+    ) -> SegmentationResult:
+        self.calls.append(
+            {
+                "prompt": prompt,
+                "image_object_key": image_object_key,
+                "image_url": image_url,
+                "confidence_threshold": confidence_threshold,
+                "max_regions": max_regions,
+                "include_masks": include_masks,
+            }
+        )
+        regions = []
+        if prompt == "dark green tiled shower wall":
+            regions = [
+                SegmentationRegion(
+                    id="sam3_region_0",
+                    prompt=prompt,
+                    score=0.93,
+                    box_xyxy=[120.0, 90.0, 370.0, 470.0],
+                )
+            ]
+        return SegmentationResult(
+            model_id="facebook/sam3",
+            image_width=640,
+            image_height=480,
+            prompt=prompt,
+            regions=regions,
+        )
 
 
 class BarrierSam3Client:
@@ -690,6 +779,56 @@ def test_segment_catalog_match_service_prepares_region_matches_concurrently():
         "upholstery__sam3_region_0",
         "upholstery__sam3_region_1",
     ]
+
+
+def test_segment_catalog_match_service_repairs_zero_region_sam3_prompt():
+    sam3_client = ZeroThenRepairSam3Client()
+    planner_client = RepairingPlannerClient()
+    artifact_store = FakeArtifactStore()
+    embedding_client = FakeEmbeddingClient()
+    search_repository = FakeSearchRunRepository()
+    run_id = uuid4()
+
+    response = SegmentCatalogMatchService(
+        sam3_client=sam3_client,
+        planner_client=planner_client,
+        artifact_store=artifact_store,
+        embedding_client=embedding_client,
+        catalog_repository=FakeCatalogRepository(),
+        search_run_repository=search_repository,
+    ).segment_and_match(
+        SegmentMatchRequest(
+            run_id=run_id,
+            image_object_key="uploads/bathroom.png",
+            prompt="Find the green shower tile.",
+            max_regions=1,
+            model_id="test-model",
+            dimensions=3,
+        )
+    )
+
+    assert [call["prompt"] for call in sam3_client.calls] == [
+        "green square tile",
+        "dark green tiled shower wall",
+    ]
+    assert planner_client.repair_calls == [
+        {
+            "prompt": "Find the green shower tile.",
+            "target_id": "green_shower_tile",
+            "failed_prompt": "green square tile",
+            "max_alternates": 3,
+        }
+    ]
+    assert [call["result_region_ids"] for call in search_repository.store_segments_calls] == [
+        ["green_shower_tile__sam3_region_0"],
+    ]
+    assert response.regions[0].target_id == "green_shower_tile"
+    assert response.regions[0].region.prompt == "dark green tiled shower wall"
+    assert response.regions[0].region.score == 0.93
+    assert artifact_store.calls[0]["region_id"] == "green_shower_tile__sam3_region_0"
+    assert embedding_client.calls[0]["image_object_key"] == (
+        f"runs/{run_id}/regions/green_shower_tile__sam3_region_0/crop.jpg"
+    )
 
 
 def test_segment_catalog_match_service_marks_run_failed_on_error():

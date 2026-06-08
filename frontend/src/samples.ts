@@ -1,4 +1,4 @@
-import demoRoom from "./assets/demo-room.png";
+import demoBathroom from "./assets/demo-bathroom.png";
 
 export type SampleImageOption = {
   id: string;
@@ -9,10 +9,10 @@ export type SampleImageOption = {
 
 export const sampleImages: SampleImageOption[] = [
   {
-    id: "hospitality-lounge",
-    name: "Hospitality lounge",
-    src: demoRoom,
-    filename: "hospitality-lounge-sample.png",
+    id: "green-shower-bath",
+    name: "Green shower bath",
+    src: demoBathroom,
+    filename: "green-shower-bath-sample.png",
   },
 ];
 

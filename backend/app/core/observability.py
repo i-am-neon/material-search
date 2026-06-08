@@ -1,3 +1,4 @@
+import os
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
@@ -9,6 +10,11 @@ from app.core.config import Settings
 
 _configured = False
 _instrumented_fastapi_apps: set[int] = set()
+_FASTAPI_EXCLUDED_URLS = (
+    r".*/healthz(?:\?.*)?$",
+    r".*/search/runs/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(?:\?.*)?$",
+)
 
 
 class NoopSpan:
@@ -22,6 +28,13 @@ class NoopSpan:
 def configure_observability(settings: Settings, *, app: FastAPI | None = None) -> None:
     if not settings.logfire_enabled:
         return
+
+    if settings.logfire_capture_llm_content:
+        os.environ.setdefault("OTEL_SEMCONV_STABILITY_OPT_IN", "gen_ai_latest_experimental")
+        os.environ.setdefault(
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT",
+            "SPAN_AND_EVENT",
+        )
 
     try:
         import logfire
@@ -49,6 +62,8 @@ def configure_observability(settings: Settings, *, app: FastAPI | None = None) -
             )
         if settings.logfire_instrument_psycopg:
             logfire.instrument_psycopg()
+        if settings.logfire_instrument_google_genai:
+            logfire.instrument_google_genai()
         logfire.instrument_pydantic(record="failure")
         _configured = True
 
@@ -56,7 +71,7 @@ def configure_observability(settings: Settings, *, app: FastAPI | None = None) -
         logfire.instrument_fastapi(
             app,
             capture_headers=False,
-            excluded_urls=r".*/healthz$",
+            excluded_urls=_FASTAPI_EXCLUDED_URLS,
             record_send_receive=False,
             extra_spans=False,
         )

@@ -141,6 +141,41 @@ uses stable product IDs and is safe to present as "this material matched multipl
 regions." Region deduping would require box or mask IoU and should be treated as
 a separate segmentation-quality feature.
 
+## Future Product Assembly Segmentation
+
+The first material-search path should keep SAM3 prompts short, visual, and
+surface-oriented. That works for material retrieval, but it is not enough for
+catalog items whose sellable product boundary is a whole assembly rather than a
+single continuous visible surface. For example, a prompt like `sink` may segment
+only the vessel bowl because that is the clearest visual grounding for the word,
+while a catalog sink product may include faucet, handles, drain hardware, and
+other disconnected components.
+
+Do not rely on a single compound SAM3 prompt such as `sink with faucet and
+handles` to define this product boundary. SAM3 should still receive concrete
+visual prompts, while application code owns the catalog product grouping. A
+future product-mode planner can expand one catalog target into component prompts:
+
+```text
+catalog target: sink
+component SAM3 prompts:
+  - vessel sink bowl
+  - sink faucet
+  - sink handles
+  - sink drain
+```
+
+The segmentation layer can then union the component regions into one logical
+catalog-object region. A simple box union works without masks, but it can include
+background between disconnected parts. A mask union is preferable when
+`include_masks=true`: decode each component mask, OR the masks together, compute
+the enclosing box, and persist a synthetic region such as `sink__union` while
+retaining the component regions for provenance and debugging.
+
+This product assembly mode should remain separate from material-surface search.
+The same image may need both modes: `beige stone vessel sink` for material
+matching, and `sink` as a product assembly for whole-item catalog matching.
+
 ## Scalability
 
 - Treat each material search as a durable run, not a one-off in-memory request.

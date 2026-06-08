@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.catalog.repository import CatalogRepository
 from app.core.observability import search_source_kind, span
 from app.model_services.embeddings import EmbeddingClient, ImageEmbedding
-from app.model_services.planning import MaterialPlannerClient
+from app.model_services.planning import MaterialPlannerClient, SegmentationPromptRepair
 from app.model_services.segmentation import Sam3Client, SegmentationRegion, SegmentationResult
 from app.search.artifacts import RegionArtifact, RegionArtifactStore
 from app.search.matching import RegionMatcher
@@ -30,6 +30,8 @@ from app.search.schemas import (
 
 _MAX_SEGMENTATION_WORKERS = 5
 _MAX_REGION_MATCH_WORKERS = 8
+_MAX_SEGMENTATION_REPAIR_ROUNDS = 1
+_MAX_REPAIR_ALTERNATE_PROMPTS = 3
 
 _T = TypeVar("_T")
 _R = TypeVar("_R")
@@ -38,6 +40,14 @@ _R = TypeVar("_R")
 class PlannedSegmentation(BaseModel):
     target: PlannedMaterialTarget
     segmentation: SegmentationResult
+    max_regions: int
+
+
+class PlannedSegmentationRepair(BaseModel):
+    target: PlannedMaterialTarget
+    failed_prompt: str
+    alternate_prompts: list[str]
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -65,6 +75,8 @@ class SearchGraphState(TypedDict, total=False):
     request: SegmentMatchRequest
     plan: MaterialSearchPlan
     segmentations: list[PlannedSegmentation]
+    segmentation_repairs: list[PlannedSegmentationRepair]
+    segmentation_repair_round: int
     image_width: int
     image_height: int
     regions: list[SegmentRegionMatchSet]
@@ -138,12 +150,30 @@ class MaterialSearchGraph:
         graph.add_node("prepare_run", self._prepare_run)
         graph.add_node("plan_search", self._plan_search)
         graph.add_node("segment_targets", self._segment_targets)
+        graph.add_node("repair_segmentation_prompts", self._repair_segmentation_prompts)
+        graph.add_node("retry_failed_targets", self._retry_failed_targets)
         graph.add_node("match_regions", self._match_regions)
         graph.add_node("complete_run", self._complete_run)
         graph.set_entry_point("prepare_run")
         graph.add_edge("prepare_run", "plan_search")
         graph.add_edge("plan_search", "segment_targets")
-        graph.add_edge("segment_targets", "match_regions")
+        graph.add_conditional_edges(
+            "segment_targets",
+            self._route_after_segmentation,
+            {
+                "repair_segmentation_prompts": "repair_segmentation_prompts",
+                "match_regions": "match_regions",
+            },
+        )
+        graph.add_edge("repair_segmentation_prompts", "retry_failed_targets")
+        graph.add_conditional_edges(
+            "retry_failed_targets",
+            self._route_after_segmentation,
+            {
+                "repair_segmentation_prompts": "repair_segmentation_prompts",
+                "match_regions": "match_regions",
+            },
+        )
         graph.add_edge("match_regions", "complete_run")
         graph.add_edge("complete_run", END)
         return graph.compile()
@@ -219,21 +249,7 @@ class MaterialSearchGraph:
             if image_width is None or image_height is None:
                 raise RuntimeError("Material search plan did not produce any segmentation requests")
 
-            stored_segments = [
-                StoredSegment(
-                    result_region_id=build_result_region_id(
-                        target_id=planned.target.target_id,
-                        source_region_id=region.id,
-                    ),
-                    target_id=planned.target.target_id,
-                    source_region_id=region.id,
-                    label=planned.target.label,
-                    box_xyxy=list(region.box_xyxy),
-                    score=region.score,
-                )
-                for planned in segmentations
-                for region in planned.segmentation.regions
-            ]
+            stored_segments = _stored_segments_from_segmentations(segmentations)
             active_span.set_attributes(
                 {
                     "image_width": image_width,
@@ -241,7 +257,11 @@ class MaterialSearchGraph:
                     "segment_count": len(stored_segments),
                 }
             )
-            if self.search_run_repository is not None:
+            should_store_initial_segments = (
+                not _failed_segmentations(segmentations)
+                or _MAX_SEGMENTATION_REPAIR_ROUNDS <= 0
+            )
+            if self.search_run_repository is not None and should_store_initial_segments:
                 self.search_run_repository.store_segments(
                     run_id=request.run_id,
                     segments=stored_segments,
@@ -251,12 +271,205 @@ class MaterialSearchGraph:
 
         return {
             "segmentations": segmentations,
+            "segmentation_repairs": [],
+            "segmentation_repair_round": 0,
             "image_width": image_width,
             "image_height": image_height,
         }
 
+    def _route_after_segmentation(self, state: SearchGraphState) -> str:
+        repair_round = state.get("segmentation_repair_round", 0)
+        if repair_round >= _MAX_SEGMENTATION_REPAIR_ROUNDS:
+            return "match_regions"
+        if _failed_segmentations(state.get("segmentations", [])):
+            return "repair_segmentation_prompts"
+        return "match_regions"
+
+    def _repair_segmentation_prompts(self, state: SearchGraphState) -> SearchGraphState:
+        request = state["request"]
+        failed = _failed_segmentations(state["segmentations"])
+        repair_round = state.get("segmentation_repair_round", 0) + 1
+
+        with span(
+            "material_search.repair_segmentation_prompts",
+            run_id=str(request.run_id),
+            failed_target_count=len(failed),
+            repair_round=repair_round,
+            max_alternates=_MAX_REPAIR_ALTERNATE_PROMPTS,
+        ) as active_span:
+            repairs = [
+                self._repair_segmentation_prompt(
+                    request=request,
+                    planned=planned,
+                    repair_round=repair_round,
+                )
+                for planned in failed
+            ]
+            active_span.set_attributes(
+                {
+                    "repair_count": len(repairs),
+                    "target_ids": [repair.target.target_id for repair in repairs],
+                    "alternate_prompt_count": sum(
+                        len(repair.alternate_prompts) for repair in repairs
+                    ),
+                }
+            )
+
+        return {
+            "segmentation_repairs": repairs,
+            "segmentation_repair_round": repair_round,
+        }
+
+    def _repair_segmentation_prompt(
+        self,
+        *,
+        request: SegmentMatchRequest,
+        planned: PlannedSegmentation,
+        repair_round: int,
+    ) -> PlannedSegmentationRepair:
+        target = planned.target
+        failed_prompt = planned.segmentation.prompt
+        repair_fn = getattr(self.planner_client, "repair_segmentation_prompts", None)
+        if repair_fn is None:
+            repair = SegmentationPromptRepair(
+                target_id=target.target_id,
+                failed_prompt=failed_prompt,
+                alternate_prompts=[],
+                reason="Prompt repair is not configured.",
+            )
+        else:
+            repair = repair_fn(
+                request=request,
+                target=target,
+                failed_prompt=failed_prompt,
+                max_alternates=_MAX_REPAIR_ALTERNATE_PROMPTS,
+            )
+        with span(
+            "material_search.repair_segmentation_prompt",
+            run_id=str(request.run_id),
+            target_id=target.target_id,
+            target_label=target.label,
+            repair_round=repair_round,
+            failed_prompt=failed_prompt,
+            alternate_prompts=repair.alternate_prompts,
+            alternate_prompt_count=len(repair.alternate_prompts),
+            repair_reason=repair.reason,
+        ):
+            return PlannedSegmentationRepair(
+                target=target,
+                failed_prompt=failed_prompt,
+                alternate_prompts=repair.alternate_prompts,
+                reason=repair.reason,
+            )
+
+    def _retry_failed_targets(self, state: SearchGraphState) -> SearchGraphState:
+        request = state["request"]
+        segmentations = state["segmentations"]
+        repairs_by_target_id = {
+            repair.target.target_id: repair for repair in state.get("segmentation_repairs", [])
+        }
+        failed = _failed_segmentations(segmentations)
+
+        with span(
+            "material_search.retry_failed_targets",
+            run_id=str(request.run_id),
+            failed_target_count=len(failed),
+            repair_round=state.get("segmentation_repair_round", 0),
+        ) as active_span:
+            retried = [
+                self._retry_failed_target(
+                    request=request,
+                    planned=planned,
+                    repair=repairs_by_target_id.get(planned.target.target_id),
+                )
+                for planned in failed
+            ]
+            retried_by_target_id = {planned.target.target_id: planned for planned in retried}
+            updated = [
+                retried_by_target_id.get(planned.target.target_id, planned)
+                for planned in segmentations
+            ]
+            active_span.set_attributes(
+                {
+                    "retried_target_count": len(retried),
+                    "recovered_target_count": sum(
+                        1 for planned in retried if planned.segmentation.regions
+                    ),
+                    "remaining_failed_target_count": len(_failed_segmentations(updated)),
+                }
+            )
+            if self.search_run_repository is not None:
+                self.search_run_repository.store_segments(
+                    run_id=request.run_id,
+                    segments=_stored_segments_from_segmentations(updated),
+                    image_width=state["image_width"],
+                    image_height=state["image_height"],
+                )
+
+        return {"segmentations": updated}
+
+    def _retry_failed_target(
+        self,
+        *,
+        request: SegmentMatchRequest,
+        planned: PlannedSegmentation,
+        repair: PlannedSegmentationRepair | None,
+    ) -> PlannedSegmentation:
+        if repair is None or not repair.alternate_prompts:
+            return planned
+
+        target = planned.target
+        max_regions = max(1, planned.max_regions)
+        with span(
+            "material_search.retry_failed_target",
+            run_id=str(request.run_id),
+            target_id=target.target_id,
+            target_label=target.label,
+            failed_prompt=repair.failed_prompt,
+            alternate_prompts=repair.alternate_prompts,
+            alternate_prompt_count=len(repair.alternate_prompts),
+        ) as active_span:
+            last_segmentation = planned.segmentation
+            for attempt_index, prompt in enumerate(repair.alternate_prompts, start=1):
+                retry_target = target.model_copy(update={"sam3_prompt": prompt})
+                retry = self._segment_target(
+                    request=request,
+                    work=SegmentationWork(target=retry_target, max_regions=max_regions),
+                    attempt_index=attempt_index,
+                    repaired_from_prompt=repair.failed_prompt,
+                )
+                last_segmentation = retry.segmentation
+                if retry.segmentation.regions:
+                    active_span.set_attributes(
+                        {
+                            "recovered": True,
+                            "winning_prompt": prompt,
+                            "attempt_count": attempt_index,
+                            "region_count": len(retry.segmentation.regions),
+                        }
+                    )
+                    return retry
+            active_span.set_attributes(
+                {
+                    "recovered": False,
+                    "attempt_count": len(repair.alternate_prompts),
+                    "last_prompt": last_segmentation.prompt,
+                    "region_count": len(last_segmentation.regions),
+                }
+            )
+            return PlannedSegmentation(
+                target=target,
+                segmentation=last_segmentation,
+                max_regions=planned.max_regions,
+            )
+
     def _segment_target(
-        self, *, request: SegmentMatchRequest, work: SegmentationWork
+        self,
+        *,
+        request: SegmentMatchRequest,
+        work: SegmentationWork,
+        attempt_index: int = 0,
+        repaired_from_prompt: str | None = None,
     ) -> PlannedSegmentation:
         target = work.target
         with span(
@@ -267,6 +480,8 @@ class MaterialSearchGraph:
             material_family_hint=target.material_family_hint,
             sam3_prompt=target.sam3_prompt,
             max_regions=work.max_regions,
+            attempt_index=attempt_index,
+            repaired_from_prompt=repaired_from_prompt,
         ) as active_span:
             segmentation = self.sam3_client.segment_image(
                 prompt=target.sam3_prompt,
@@ -284,7 +499,11 @@ class MaterialSearchGraph:
                     "model_id": segmentation.model_id,
                 }
             )
-            return PlannedSegmentation(target=target, segmentation=segmentation)
+            return PlannedSegmentation(
+                target=target,
+                segmentation=segmentation,
+                max_regions=work.max_regions,
+            )
 
     def _prepare_region_match(
         self, *, request: SegmentMatchRequest, work: RegionMatchWork
@@ -503,6 +722,30 @@ def _material_filter_hint(target: PlannedMaterialTarget) -> str:
         for value in (target.material_family_hint, target.label, target.sam3_prompt)
         if value
     )
+
+
+def _failed_segmentations(segmentations: list[PlannedSegmentation]) -> list[PlannedSegmentation]:
+    return [planned for planned in segmentations if not planned.segmentation.regions]
+
+
+def _stored_segments_from_segmentations(
+    segmentations: list[PlannedSegmentation],
+) -> list[StoredSegment]:
+    return [
+        StoredSegment(
+            result_region_id=build_result_region_id(
+                target_id=planned.target.target_id,
+                source_region_id=region.id,
+            ),
+            target_id=planned.target.target_id,
+            source_region_id=region.id,
+            label=planned.target.label,
+            box_xyxy=list(region.box_xyxy),
+            score=region.score,
+        )
+        for planned in segmentations
+        for region in planned.segmentation.regions
+    ]
 
 
 def _run_ordered_in_parallel(

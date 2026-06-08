@@ -168,4 +168,4 @@ export const matchesByRegion: Record<string, ProductMatch[]> = {
 };
 
 export const defaultPrompt =
-  "Find orderable materials that match the floor, walnut paneling, pale counter surface, and sage upholstery. Favor hospitality-grade finishes with quiet texture.";
+  "Find orderable materials that match the deep green shower tile and the bath mat in front of it.";
