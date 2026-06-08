@@ -21,7 +21,6 @@ export function SearchWorkbench({ initialScenario = "empty", testTiming }: Searc
         <div className="mark">
           <span className="brand-glyph" aria-hidden="true"><Layers3 size={20} /></span>
           <span className="logo">Material<span className="slash"> / </span>Search</span>
-          <span className="sub">A&amp;D Sourcing</span>
         </div>
         <nav className="topnav">
           <Link className="active" to="/">Search</Link>
