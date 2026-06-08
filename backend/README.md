@@ -282,7 +282,7 @@ For the larger demo catalog, use the public Material Bank sitemap and the
 category scope in `../data/catalog/material-bank-demo-categories.json`. The
 current scope targets kitchen, bathroom, living-room, and mood-board surfaces:
 tile, paints, surfaces, flooring, textiles, wallcovering, masonry/stone,
-paneling, bathroom, kitchen, hardware, lighting, and furniture.
+leather, paneling, bathroom, kitchen, hardware, lighting, and furniture.
 
 Generate a manifest with up to 50 matched products per category:
 

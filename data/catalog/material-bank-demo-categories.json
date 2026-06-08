@@ -75,6 +75,22 @@
     },
     {
       "group": "Materials",
+      "name": "Leather",
+      "taxonomy_path": ["Materials", "Leather"],
+      "material_family": "leather",
+      "aliases": [
+        "leather",
+        "leather hide",
+        "hide",
+        "cowhide",
+        "full grain",
+        "aniline",
+        "upholstery leather",
+        "woven leather"
+      ]
+    },
+    {
+      "group": "Materials",
       "name": "Wallcovering",
       "taxonomy_path": ["Materials", "Wallcovering"],
       "material_family": "wallcovering",

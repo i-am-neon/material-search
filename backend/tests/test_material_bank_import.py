@@ -21,6 +21,7 @@ def test_load_category_plan_contains_demo_scope():
         "Surfaces",
         "Flooring",
         "Textiles",
+        "Leather",
         "Wallcovering",
         "Masonry & Stone",
         "Paneling",
