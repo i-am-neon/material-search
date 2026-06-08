@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from app.core.observability import search_source_kind, span
 from app.search.schemas import MaterialSearchPlan, PlannedMaterialTarget, SegmentMatchRequest
 
-GEMINI_MODEL_ID = "gemini-3.5-flash"
+GEMINI_MODEL_ID = "gemini-3.1-flash-lite"
 DEFAULT_GEMINI_RETRY_ATTEMPTS = 4
 DEFAULT_GEMINI_RETRY_BASE_DELAY_SECONDS = 1.0
 DEFAULT_GEMINI_RETRY_MAX_DELAY_SECONDS = 12.0
