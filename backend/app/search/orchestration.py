@@ -717,11 +717,7 @@ def _redact_url_match(match: re.Match[str]) -> str:
 
 
 def _material_filter_hint(target: PlannedMaterialTarget) -> str:
-    return " ".join(
-        value
-        for value in (target.material_family_hint, target.label, target.sam3_prompt)
-        if value
-    )
+    return target.material_family_hint or ""
 
 
 def _failed_segmentations(segmentations: list[PlannedSegmentation]) -> list[PlannedSegmentation]:

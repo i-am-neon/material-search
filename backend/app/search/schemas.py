@@ -2,11 +2,28 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, HttpUrl, model_validator
+from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 
 from app.catalog.schemas import CatalogMatch
 from app.core.config import DEFAULT_EMBEDDING_DIMENSIONS, DEFAULT_EMBEDDING_MODEL_ID
 from app.model_services.segmentation import SegmentationRegion
+
+CATALOG_FILTER_CATEGORIES: tuple[str, ...] = (
+    "tile",
+    "paint",
+    "surface",
+    "flooring",
+    "textile",
+    "leather",
+    "wallcovering",
+    "stone",
+    "paneling",
+    "bathroom",
+    "kitchen",
+    "hardware",
+    "lighting",
+    "furniture",
+)
 
 
 class PlannedMaterialTarget(BaseModel):
@@ -18,13 +35,22 @@ class PlannedMaterialTarget(BaseModel):
     priority: int = Field(ge=1, le=20)
     max_regions: int = Field(default=2, ge=1, le=5)
 
+    @field_validator("material_family_hint")
+    @classmethod
+    def normalize_material_family_hint(cls, value: str | None) -> str | None:
+        normalized = (value or "").lower().replace("_", " ").replace("-", " ").strip()
+        if not normalized or normalized in {"null", "none"}:
+            return None
+        allowed = set(CATALOG_FILTER_CATEGORIES)
+        return normalized if normalized in allowed else None
+
 
 class MaterialSearchPlan(BaseModel):
     user_intent_summary: str = Field(min_length=1, max_length=500)
     avoid: list[str] = Field(default_factory=list, max_length=12)
     is_material_search: bool = True
     unsupported_reason: str | None = Field(default=None, max_length=500)
-    targets: list[PlannedMaterialTarget] = Field(default_factory=list, max_length=8)
+    targets: list[PlannedMaterialTarget] = Field(default_factory=list, max_length=15)
 
     @model_validator(mode="after")
     def require_targets_for_material_search(self) -> "MaterialSearchPlan":

@@ -244,12 +244,16 @@ def test_match_region_filters_visible_matches_by_material_hint():
         similarity=0.94,
     )
     carpet = CatalogMatch(
-        item=make_item(name="Hard Truth - Steel", material_family="carpet"),
+        item=make_item(name="Hard Truth - Steel", material_family="flooring"),
         model_id="test-model",
         similarity=0.82,
     )
     entry_carpet = CatalogMatch(
-        item=make_item(name="Pedigrid - Graphite", material_family="entry_carpet"),
+        item=make_item(
+            name="Pedigrid - Graphite",
+            material_family="textile",
+            metadata={"source_category": "Flooring"},
+        ),
         model_id="test-model",
         similarity=0.8,
     )
@@ -262,7 +266,7 @@ def test_match_region_filters_visible_matches_by_material_hint():
         RegionMatchRequest(
             region_id="floor__sam3-region-1",
             crop_object_key="runs/run-1/regions/floor/crop.jpg",
-            material_filter_hint="textile carpet floor",
+            material_filter_hint="flooring",
             model_id="test-model",
             dimensions=3,
             limit=2,
@@ -273,6 +277,119 @@ def test_match_region_filters_visible_matches_by_material_hint():
     assert [(ranked.rank, ranked.match.item.name) for ranked in result.matches] == [
         (1, "Hard Truth - Steel"),
         (2, "Pedigrid - Graphite"),
+    ]
+
+
+def test_match_region_filters_visible_matches_by_leather_hint():
+    textile = CatalogMatch(
+        item=make_item(name="Green Performance Boucle", material_family="textile"),
+        model_id="test-model",
+        similarity=0.97,
+    )
+    leather = CatalogMatch(
+        item=make_item(name="Leather Essentials Cowhide", material_family="leather"),
+        model_id="test-model",
+        similarity=0.91,
+    )
+    hide = CatalogMatch(
+        item=make_item(
+            name="Garrett Wovens",
+            material_family="textile",
+            metadata={"materials": ["Leather", "Leather Hide"]},
+        ),
+        model_id="test-model",
+        similarity=0.9,
+    )
+    repository = RecordingCatalogRepository([textile, leather, hide])
+    embedding_client = RecordingEmbeddingClient(
+        ImageEmbedding(model_id="test-model", dimensions=3, embedding=[0.1, 0.2, 0.3])
+    )
+
+    result = RegionMatcher(repository, embedding_client).match_region(
+        RegionMatchRequest(
+            region_id="chair__sam3-region-1",
+            crop_object_key="runs/run-1/regions/chair/crop.jpg",
+            material_filter_hint="leather",
+            model_id="test-model",
+            dimensions=3,
+            limit=2,
+        )
+    )
+
+    assert repository.search_calls[0]["limit"] == 8
+    assert [(ranked.rank, ranked.match.item.name) for ranked in result.matches] == [
+        (1, "Leather Essentials Cowhide"),
+        (2, "Garrett Wovens"),
+    ]
+
+
+def test_match_region_filters_hardware_only_from_explicit_planner_category():
+    brass_paint = CatalogMatch(
+        item=make_item(name="Brass - Paint Finish", material_family="paint"),
+        model_id="test-model",
+        similarity=0.97,
+    )
+    brass_pull = CatalogMatch(
+        item=make_item(
+            name="Round Brass Cabinet Knob",
+            material_family="hardware",
+            metadata={"source_category": "Hardware"},
+        ),
+        model_id="test-model",
+        similarity=0.89,
+    )
+    repository = RecordingCatalogRepository([brass_paint, brass_pull])
+    embedding_client = RecordingEmbeddingClient(
+        ImageEmbedding(model_id="test-model", dimensions=3, embedding=[0.1, 0.2, 0.3])
+    )
+
+    result = RegionMatcher(repository, embedding_client).match_region(
+        RegionMatchRequest(
+            region_id="brass_hardware__sam3-region-1",
+            crop_object_key="runs/run-1/regions/brass/crop.jpg",
+            material_filter_hint="hardware",
+            model_id="test-model",
+            dimensions=3,
+            limit=1,
+        )
+    )
+
+    assert repository.search_calls[0]["limit"] == 4
+    assert [(ranked.rank, ranked.match.item.name) for ranked in result.matches] == [
+        (1, "Round Brass Cabinet Knob"),
+    ]
+
+
+def test_match_region_does_not_infer_category_filter_from_free_text_hint():
+    brass_paint = CatalogMatch(
+        item=make_item(name="Brass - Paint Finish", material_family="paint"),
+        model_id="test-model",
+        similarity=0.97,
+    )
+    brass_pull = CatalogMatch(
+        item=make_item(name="Round Brass Cabinet Knob", material_family="hardware"),
+        model_id="test-model",
+        similarity=0.89,
+    )
+    repository = RecordingCatalogRepository([brass_paint, brass_pull])
+    embedding_client = RecordingEmbeddingClient(
+        ImageEmbedding(model_id="test-model", dimensions=3, embedding=[0.1, 0.2, 0.3])
+    )
+
+    result = RegionMatcher(repository, embedding_client).match_region(
+        RegionMatchRequest(
+            region_id="brass_hardware__sam3-region-1",
+            crop_object_key="runs/run-1/regions/brass/crop.jpg",
+            material_filter_hint="brass hardware pull",
+            model_id="test-model",
+            dimensions=3,
+            limit=1,
+        )
+    )
+
+    assert repository.search_calls[0]["limit"] == 1
+    assert [(ranked.rank, ranked.match.item.name) for ranked in result.matches] == [
+        (1, "Brass - Paint Finish"),
     ]
 
 
@@ -296,7 +413,7 @@ def test_match_region_falls_back_to_nearest_neighbors_when_category_filter_has_n
         RegionMatchRequest(
             region_id="floor__sam3-region-1",
             crop_object_key="runs/run-1/regions/floor/crop.jpg",
-            material_filter_hint="carpet floor",
+            material_filter_hint="flooring",
             model_id="test-model",
             dimensions=3,
             limit=1,
@@ -354,7 +471,9 @@ def test_match_region_falls_back_to_catalog_listing_on_embedding_429():
     assert result.matches[0].match.similarity > result.matches[1].match.similarity
 
 
-def make_item(name: str, material_family: str = "textile") -> CatalogItem:
+def make_item(
+    name: str, material_family: str = "textile", metadata: dict | None = None
+) -> CatalogItem:
     now = datetime.now(UTC)
     return CatalogItem(
         id=uuid4(),
@@ -363,7 +482,7 @@ def make_item(name: str, material_family: str = "textile") -> CatalogItem:
         material_family=material_family,
         image_object_key=f"catalog/acme/{name.lower().replace(' ', '-')}.jpg",
         image_url=None,
-        metadata={},
+        metadata=metadata or {},
         created_at=now,
         updated_at=now,
     )

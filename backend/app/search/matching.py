@@ -7,40 +7,15 @@ import httpx
 from app.catalog.repository import CatalogRepository
 from app.catalog.schemas import CatalogItem, CatalogMatch
 from app.model_services.embeddings import EmbeddingClient, ImageEmbedding
-from app.search.schemas import RankedRegionMatch, RegionMatchRequest, RegionMatchSet
+from app.search.schemas import (
+    CATALOG_FILTER_CATEGORIES,
+    RankedRegionMatch,
+    RegionMatchRequest,
+    RegionMatchSet,
+)
 
 _CATEGORY_CANDIDATE_MULTIPLIER = 4
-
-_CATEGORY_ALIASES: tuple[tuple[set[str], set[str]], ...] = (
-    (
-        {"carpet", "rug", "broadloom"},
-        {"carpet", "entry carpet", "modular carpet", "entrance carpet", "rug", "broadloom"},
-    ),
-    (
-        {"shade", "window covering", "window treatment"},
-        {"shade textile", "window covering", "shade fabric"},
-    ),
-    (
-        {"upholstery", "textile", "fabric", "woven"},
-        {"textile", "upholstery", "woven", "fabric"},
-    ),
-    (
-        {"tile", "porcelain", "ceramic"},
-        {"tile", "porcelain", "ceramic"},
-    ),
-    (
-        {"wood", "hardwood", "oak", "laminate", "woodgrain", "veneer"},
-        {"wood", "hardwood", "oak", "laminate", "woodgrain", "veneer", "high pressure laminate"},
-    ),
-    (
-        {"stone", "marble", "granite", "limestone", "travertine"},
-        {"stone", "marble", "granite", "limestone", "travertine"},
-    ),
-    (
-        {"wallcovering", "wall covering", "wallpaper"},
-        {"wallcovering", "wall covering", "wallpaper"},
-    ),
-)
+_CATALOG_FILTER_CATEGORY_SET = set(CATALOG_FILTER_CATEGORIES)
 
 
 class RegionMatcher:
@@ -158,16 +133,25 @@ def _category_terms_for_hint(hint: str | None) -> set[str] | None:
         return None
 
     normalized_hint = _normalize_term(hint)
-    for hint_terms, category_terms in _CATEGORY_ALIASES:
-        if any(term in normalized_hint for term in hint_terms):
-            return category_terms
-    return None
+    if normalized_hint not in _CATALOG_FILTER_CATEGORY_SET:
+        return None
+    return {normalized_hint}
 
 
 def _catalog_item_matches(item: CatalogItem, category_terms: set[str]) -> bool:
     item_terms = {_normalize_term(item.material_family)}
+    item_terms.update(_metadata_category_terms(item.metadata))
     item_terms.update(_metadata_material_terms(item.metadata))
     return any(term in category_terms for term in item_terms)
+
+
+def _metadata_category_terms(metadata: dict[str, Any]) -> set[str]:
+    values = [
+        metadata.get("source_category"),
+        metadata.get("category"),
+        metadata.get("material_family"),
+    ]
+    return {_normalize_term(value) for value in values if isinstance(value, str)}
 
 
 def _metadata_material_terms(metadata: dict[str, Any]) -> set[str]:

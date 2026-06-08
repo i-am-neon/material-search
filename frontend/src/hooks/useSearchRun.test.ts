@@ -118,7 +118,10 @@ describe("useSearchRun", () => {
     });
     await waitFor(() => expect(result.current.scenario).toBe("complete"));
     expect(createSearchRun).toHaveBeenCalledWith(
-      expect.objectContaining({ prompt: "Find orderable materials in this image." }),
+      expect.objectContaining({
+        prompt: "Find orderable materials in this image.",
+        max_regions: 12,
+      }),
     );
     expect(result.current.surfaces.map((s) => s.region.label)).toEqual(["Floor", "Wall"]);
     expect(result.current.surfaces[0].matchCount).toBe(2);

@@ -166,7 +166,7 @@ export function useSearchRun(options: UseSearchRunOptions = {}) {
         image_object_key: uploaded.image_object_key,
         prompt: searchPrompt,
         confidence_threshold: 0.45,
-        max_regions: 5,
+        max_regions: 12,
         include_masks: false,
         matches_per_region: 6,
         min_similarity: 0,

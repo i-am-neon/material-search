@@ -29,6 +29,7 @@ Build incrementally from the target architecture, starting with project scaffold
 - Prefer clean service boundaries: web app, API, workers, model services, and Supabase data/storage.
 - Use durable search runs: the API creates a `run_id`, enqueues work, and clients fetch status/results.
 - Keep model trust boundaries explicit: models may choose concepts, regions, and descriptions; code owns persisted IDs, boxes, confidence scores, embeddings, nearest-neighbor search, product IDs, and similarity values.
+- Do not use keyword matching to infer catalog categories or filters in LLM applications. Show the model the allowed structured category/filter options and require it to choose an explicit structured value; downstream code may validate exact allowed values, but must not derive category intent from free-text labels, prompts, or descriptions.
 - Start with a few hand-authored evals later; future product signals should create eval candidates, not automatic ground truth.
 - For demo simplicity, development and production share the same real service keys and infrastructure values. Do not add fake, deterministic, stubbed, or local-only model/data paths for dev convenience unless the user explicitly asks for a test-only harness. Catalog vector creation and similar workflows should use the real production model services and persisted production-style data paths.
 

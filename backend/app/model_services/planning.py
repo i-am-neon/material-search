@@ -10,7 +10,12 @@ import httpx
 from pydantic import BaseModel
 
 from app.core.observability import search_source_kind, span
-from app.search.schemas import MaterialSearchPlan, PlannedMaterialTarget, SegmentMatchRequest
+from app.search.schemas import (
+    CATALOG_FILTER_CATEGORIES,
+    MaterialSearchPlan,
+    PlannedMaterialTarget,
+    SegmentMatchRequest,
+)
 
 GEMINI_MODEL_ID = "gemini-3.1-flash-lite"
 # GEMINI_MODEL_ID = "gemini-3.5-flash"
@@ -114,7 +119,11 @@ class GeminiMaterialPlannerClient(MaterialPlannerClient):
             )
             text = _first_text_part(response)
             plan = MaterialSearchPlan.model_validate_json(_strip_json_fence(text))
-            normalized = _normalize_plan(plan, max_regions=request.max_regions)
+            normalized = _normalize_plan(
+                plan,
+                max_regions=request.max_regions,
+                user_prompt=request.prompt,
+            )
             active_span.set_attributes(
                 {
                     "is_material_search": normalized.is_material_search,
@@ -273,6 +282,8 @@ class MissingMaterialPlannerClient(MaterialPlannerClient):
 
 
 def _planner_prompt(user_prompt: str, max_regions: int) -> str:
+    target_limit = min(max_regions, 12)
+    category_list = ", ".join(CATALOG_FILTER_CATEGORIES)
     return f"""
 You are planning a material search over an interior/product reference image.
 
@@ -280,24 +291,70 @@ Interpret the user's natural-language request and the image. Return JSON only.
 Plan concrete material targets that should be segmented with SAM3 and later matched
 against a product catalog. Preserve explicit negative constraints such as "avoid
 anything too glossy" in the avoid array.
+Choose the catalog filter for each target yourself using material_family_hint.
 
 User request:
 {user_prompt}
 
+Available catalog filters for material_family_hint:
+{category_list}
+
 Rules:
-- Produce 1 to 5 targets, with the most important first.
+- Produce 1 to {target_limit} targets, with the most important first.
 - Across all targets, expect at most {max_regions} final regions.
 - If the user request is not asking for material search or material matching,
   set is_material_search to false, explain unsupported_reason, and return no targets.
+- material_family_hint must be one exact value from the available catalog filters
+  or null. Do not put colors, styles, locations, product words, or combined
+  phrases in material_family_hint.
 - sam3_prompt must be short and visual. It is a SAM3 segmentation prompt, not
   a search query.
 - Describe the visible region SAM3 should segment: color + material + surface
   or object + location when helpful.
+- If the image is a mood board, sample board, material palette, or flat-lay of
+  swatches/samples, enumerate distinct visible material items as separate
+  targets instead of summarizing only the dominant style. Include overlapping
+  samples when their visible portions are segmentable.
+- For mood boards with many visible samples, aim for broad coverage: return
+  8 to {target_limit} targets when that many distinct samples are visible.
+- Do not stop at eight targets if additional distinct material samples are
+  visible and the {target_limit}-target budget is not exhausted.
+- Do not group separate board pieces just because they share a family. Separate
+  top and bottom fabric swatches, separate wood boards/blocks/panels, separate
+  stone/tile samples, separate paint chips or finish samples, and separate
+  wallcovering/textile strips when they are visually distinct pieces.
+- When multiple wood pieces are visible as separate boards, panels, blocks, or
+  trim samples, create separate targets such as "large light oak panel",
+  "small rectangular wood block", and "small square wood sample" instead of one
+  combined wood target.
+- If a bowl, tray, or container appears to hold a visible paint, stain, glaze,
+  resin, or finish sample, target the visible finish sample; otherwise ignore
+  styling props and loose branches.
+- In interior material boards, a small cup or bowl of amber, ochre, brown,
+  white, or colored liquid is usually a finish, stain, glaze, paint, or resin
+  sample. Include it as its own target when visible.
+- For mood boards and swatch boards, prefer one final region per target
+  (max_regions: 1) unless the same material appears in multiple separated
+  samples that the user explicitly asked to compare.
+- For mood boards, include small but design-relevant samples such as paint chips,
+  wood blocks, stone tiles, fabric swatches, rugs, wallcovering, and trim pieces.
+  Ignore styling props like loose branches unless the user asks for those objects
+  as materials.
+- In dense mood boards, do not miss partially visible edge samples such as a
+  folded cream linen swatch, small brass/gold hardware, white tile grids, black
+  stone pucks or slabs, leather swatches, and cane or rattan panels.
+- Inspect lower-right clusters carefully. If a white tile grid and a separate
+  dark or black round stone puck/slab are both visible, include both as separate
+  targets.
+- For brass, bronze, gold, or black metal pulls, knobs, latches, handles, hooks,
+  or hinges, use material_family_hint "hardware".
 - For repeated small materials such as tile, target the larger visible surface,
   not one individual unit. Prefer "dark green tiled shower wall" over
   "green square tile".
 - Prefer prompts like "green woven chair upholstery", "matte gray stone floor",
-  "dark green ceramic tile wall", or "patterned bath mat rug".
+  "dark green ceramic tile wall", "rust woven fabric swatch",
+  "olive green paint chip", "light oak wood sample", or
+  "patterned bath mat rug".
 - Avoid abstract search words in sam3_prompt, such as "find", "match",
   "similar", "product", "catalog", or "material feel".
 - Do not invent product IDs, boxes, similarity scores, or catalog matches.
@@ -314,7 +371,7 @@ JSON shape:
       "target_id": "short_snake_case",
       "label": "human label",
       "sam3_prompt": "visual segmentation prompt",
-      "material_family_hint": "tile|textile|wood|stone|wallcovering|null",
+      "material_family_hint": "one exact available catalog filter or null",
       "reason": "why this target matters",
       "priority": 1,
       "max_regions": 2
@@ -482,7 +539,12 @@ def _normalize_prompt_repair(
     )
 
 
-def _normalize_plan(plan: MaterialSearchPlan, *, max_regions: int) -> MaterialSearchPlan:
+def _normalize_plan(
+    plan: MaterialSearchPlan,
+    *,
+    max_regions: int,
+    user_prompt: str = "",
+) -> MaterialSearchPlan:
     if not plan.is_material_search:
         return plan.model_copy(
             update={
@@ -494,12 +556,14 @@ def _normalize_plan(plan: MaterialSearchPlan, *, max_regions: int) -> MaterialSe
     seen: set[str] = set()
     targets = []
     remaining_regions = max_regions
+    board_like = _is_mood_board_plan(plan, user_prompt=user_prompt)
     for index, target in enumerate(sorted(plan.targets, key=lambda item: item.priority), start=1):
         target_id = _slug_target_id(target.target_id or target.label)
         if target_id in seen:
             target_id = f"{target_id}_{index}"
         seen.add(target_id)
-        target_regions = max(1, min(target.max_regions, remaining_regions))
+        requested_regions = 1 if board_like else target.max_regions
+        target_regions = max(1, min(requested_regions, remaining_regions))
         remaining_regions = max(0, remaining_regions - target_regions)
         targets.append(
             target.model_copy(
@@ -519,6 +583,31 @@ def _normalize_plan(plan: MaterialSearchPlan, *, max_regions: int) -> MaterialSe
             "avoid": [item.strip() for item in plan.avoid if item.strip()],
             "targets": targets,
         }
+    )
+
+
+def _is_mood_board_plan(plan: MaterialSearchPlan, *, user_prompt: str) -> bool:
+    text = " ".join(
+        [
+            user_prompt,
+            plan.user_intent_summary,
+            *(target.label for target in plan.targets),
+            *(target.reason for target in plan.targets),
+            *(target.sam3_prompt for target in plan.targets),
+        ]
+    ).lower()
+    return any(
+        phrase in text
+        for phrase in (
+            "mood board",
+            "moodboard",
+            "material board",
+            "sample board",
+            "swatch board",
+            "flat-lay",
+            "flat lay",
+            "swatch",
+        )
     )
 
 
