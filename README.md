@@ -4,7 +4,9 @@
 
 Built for the Material Bank Applied AI Engineer brief as an end-to-end, production-shaped system — not a notebook demo. It runs on real model services (Gemini, Modal-hosted SAM3, SigLIP 2), durable async search runs, a real material catalog indexed into pgvector, and full-trace observability. There are no stubbed or local-only model paths.
 
-**[Try the live demo →](https://i-am-neon.github.io/material-search/)** — deployed via the same CI pipeline described below.
+**[Watch the demo video →](https://youtu.be/EiHJ7k3Hz8A)**.
+
+![Material Search interface showing detected bathroom surfaces and material matches](docs/assets/material-search-demo.png)
 
 ## Highlights
 
