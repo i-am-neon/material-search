@@ -45,6 +45,17 @@ class RateLimitedEmbeddingClient:
         )
 
 
+class RateLimitedCatalogRepository:
+    def search_by_embedding(self, **kwargs):
+        request = httpx.Request("POST", "https://db.example.com/rpc/match_catalog_items")
+        response = httpx.Response(429, request=request, text="rate limit reached")
+        raise httpx.HTTPStatusError(
+            "Client error '429 Too Many Requests'",
+            request=request,
+            response=response,
+        )
+
+
 class RecordingCatalogRepository:
     def __init__(self, matches: list[CatalogMatch]):
         self.matches = matches
@@ -111,15 +122,6 @@ class InMemoryVectorCatalogRepository(RecordingCatalogRepository):
             for match in sorted(scored, key=lambda match: match.similarity, reverse=True)
             if match.similarity >= min_similarity
         ][:limit]
-
-
-class ListingCatalogRepository(RecordingCatalogRepository):
-    def __init__(self, items: list[CatalogItem]):
-        super().__init__(matches=[])
-        self.items = items
-
-    def list_items(self, limit: int = 100, offset: int = 0) -> list[CatalogItem]:
-        return self.items[offset : offset + limit]
 
 
 def test_match_region_embeds_crop_and_searches_catalog():
@@ -525,31 +527,41 @@ def test_match_region_returns_empty_matches_when_catalog_has_no_hits():
     assert repository.search_calls[0]["min_similarity"] == 0.4
 
 
-def test_match_region_falls_back_to_catalog_listing_on_embedding_429():
-    repository = ListingCatalogRepository(
-        [
-            make_item(name="Honed Limestone", material_family="stone"),
-            make_item(name="Green Performance Boucle", material_family="textile"),
-            make_item(name="White Oak", material_family="wood"),
-        ]
-    )
+def test_match_region_propagates_embedding_429_without_keyword_fallback():
+    matcher = RegionMatcher(RecordingCatalogRepository([]), RateLimitedEmbeddingClient())
 
-    result = RegionMatcher(repository, RateLimitedEmbeddingClient()).match_region(
-        RegionMatchRequest(
-            region_id="green_upholstery__coarse_image_region_0",
-            crop_object_key="runs/run-1/regions/coarse/crop.jpg",
-            model_id="test-model",
-            dimensions=3,
-            limit=2,
-            min_similarity=0.0,
+    with pytest.raises(httpx.HTTPStatusError, match="429 Too Many Requests"):
+        matcher.match_region(
+            RegionMatchRequest(
+                region_id="green_upholstery__coarse_image_region_0",
+                crop_object_key="runs/run-1/regions/coarse/crop.jpg",
+                model_id="test-model",
+                dimensions=3,
+                limit=2,
+                min_similarity=0.0,
+            )
         )
+
+
+def test_match_region_propagates_vector_search_429_without_keyword_fallback():
+    matcher = RegionMatcher(
+        RateLimitedCatalogRepository(),
+        RecordingEmbeddingClient(
+            ImageEmbedding(model_id="test-model", dimensions=3, embedding=[0.1, 0.2, 0.3])
+        ),
     )
 
-    assert [ranked.match.item.name for ranked in result.matches] == [
-        "Green Performance Boucle",
-        "Honed Limestone",
-    ]
-    assert result.matches[0].match.similarity > result.matches[1].match.similarity
+    with pytest.raises(httpx.HTTPStatusError, match="429 Too Many Requests"):
+        matcher.match_region(
+            RegionMatchRequest(
+                region_id="green_upholstery__coarse_image_region_0",
+                crop_object_key="runs/run-1/regions/coarse/crop.jpg",
+                model_id="test-model",
+                dimensions=3,
+                limit=2,
+                min_similarity=0.0,
+            )
+        )
 
 
 def make_item(

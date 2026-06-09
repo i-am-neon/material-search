@@ -1,8 +1,4 @@
-import json
-import re
 from typing import Any
-
-import httpx
 
 from app.catalog.repository import CatalogRepository
 from app.catalog.schemas import CatalogItem, CatalogMatch
@@ -26,12 +22,7 @@ class RegionMatcher:
         self.embedding_client = embedding_client
 
     def match_region(self, request: RegionMatchRequest) -> RegionMatchSet:
-        try:
-            embedding = self.embed_region(request)
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code != 429:
-                raise
-            return self.match_fallback(request)
+        embedding = self.embed_region(request)
         return self.match_embedding(request, embedding)
 
     def embed_region(self, request: RegionMatchRequest) -> ImageEmbedding:
@@ -53,21 +44,12 @@ class RegionMatcher:
             limit=request.limit,
             category_terms=category_terms,
         )
-        try:
-            matches = self.repository.search_by_embedding(
-                embedding=embedding.embedding,
-                model_id=embedding.model_id,
-                limit=search_limit,
-                min_similarity=request.min_similarity,
-            )
-        except httpx.HTTPStatusError as exc:
-            if exc.response.status_code != 429:
-                raise
-            matches = _fallback_catalog_matches(
-                repository=self.repository,
-                request=request,
-                limit=search_limit,
-            )
+        matches = self.repository.search_by_embedding(
+            embedding=embedding.embedding,
+            model_id=embedding.model_id,
+            limit=search_limit,
+            min_similarity=request.min_similarity,
+        )
         matches = _filter_matches_by_category(matches, category_terms)[: request.limit]
         return _build_match_set(
             request=request,
@@ -75,26 +57,6 @@ class RegionMatcher:
             dimensions=dimensions,
             matches=matches,
         )
-
-    def match_fallback(self, request: RegionMatchRequest) -> RegionMatchSet:
-        category_terms = _category_terms_for_request(request)
-        search_limit = _search_limit_for_category_filter(
-            limit=request.limit,
-            category_terms=category_terms,
-        )
-        matches = _fallback_catalog_matches(
-            repository=self.repository,
-            request=request,
-            limit=search_limit,
-        )
-        matches = _filter_matches_by_category(matches, category_terms)[: request.limit]
-        return _build_match_set(
-            request=request,
-            model_id=request.model_id,
-            dimensions=request.dimensions,
-            matches=matches,
-        )
-
 
 def _build_match_set(
     *, request: RegionMatchRequest, model_id: str, dimensions: int, matches: list[CatalogMatch]
@@ -189,42 +151,3 @@ def _validate_embedding(embedding: ImageEmbedding, request: RegionMatchRequest) 
             f"Embedding length {len(embedding.embedding)} "
             f"does not match dimensions {request.dimensions}"
         )
-
-
-def _fallback_catalog_matches(
-    *, repository: CatalogRepository, request: RegionMatchRequest, limit: int
-) -> list[CatalogMatch]:
-    items = repository.list_items(limit=max(limit * 4, limit), offset=0)
-    terms = {
-        term
-        for term in re.split(r"[^a-z0-9]+", request.region_id.lower())
-        if len(term) >= 3 and term not in {"sam", "sam3", "region", "gemini", "coarse", "image"}
-    }
-    scored = [
-        CatalogMatch(
-            item=item,
-            model_id=request.model_id,
-            similarity=_catalog_keyword_score(item=item, terms=terms),
-        )
-        for item in items
-    ]
-    return [
-        match
-        for match in sorted(scored, key=lambda match: match.similarity, reverse=True)
-        if match.similarity >= request.min_similarity
-    ][:limit]
-
-
-def _catalog_keyword_score(*, item: CatalogItem, terms: set[str]) -> float:
-    if not terms:
-        return 0.1
-    haystack = " ".join(
-        [
-            item.manufacturer,
-            item.name,
-            item.material_family or "",
-            json.dumps(item.metadata, sort_keys=True),
-        ]
-    ).lower()
-    hits = sum(1 for term in terms if term in haystack)
-    return 0.1 + (hits / len(terms))

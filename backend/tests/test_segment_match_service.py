@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from threading import Barrier, Lock
 from uuid import UUID, uuid4
 
+import httpx
 import pytest
 
 from app.catalog.schemas import CatalogItem, CatalogMatch
@@ -338,6 +339,27 @@ class FakeEmbeddingClient:
             model_id=model_id,
             dimensions=dimensions,
             embedding=[0.2] * dimensions,
+        )
+
+
+class RateLimitedEmbeddingClient(FakeEmbeddingClient):
+    def embed_image(
+        self, *, image_object_key: str, image_url: str | None, model_id: str, dimensions: int
+    ) -> ImageEmbedding:
+        self.calls.append(
+            {
+                "image_object_key": image_object_key,
+                "image_url": image_url,
+                "model_id": model_id,
+                "dimensions": dimensions,
+            }
+        )
+        request = httpx.Request("POST", "https://embedding.example.com/embed-image")
+        response = httpx.Response(429, request=request, text="rate limit reached")
+        raise httpx.HTTPStatusError(
+            "Client error '429 Too Many Requests'",
+            request=request,
+            response=response,
         )
 
 
@@ -857,6 +879,45 @@ def test_segment_catalog_match_service_marks_run_failed_on_error():
     assert search_repository.fail_run_calls == [
         {"run_id": run_id, "error": "SAM3 unavailable"}
     ]
+
+
+def test_segment_catalog_match_service_fails_on_embedding_429_without_keyword_fallback():
+    search_repository = FakeSearchRunRepository()
+    repository = FakeCatalogRepository()
+    embedding_client = RateLimitedEmbeddingClient()
+    run_id = uuid4()
+
+    with pytest.raises(httpx.HTTPStatusError, match="429 Too Many Requests"):
+        SegmentCatalogMatchService(
+            sam3_client=FakeSam3Client(),
+            planner_client=FakePlannerClient(),
+            artifact_store=FakeArtifactStore(),
+            embedding_client=embedding_client,
+            catalog_repository=repository,
+            search_run_repository=search_repository,
+        ).segment_and_match(
+            SegmentMatchRequest(
+                run_id=run_id,
+                image_object_key="uploads/room.jpg",
+                prompt="upholstery",
+                model_id="test-model",
+                dimensions=3,
+            )
+        )
+
+    assert embedding_client.calls == [
+        {
+            "image_object_key": f"runs/{run_id}/regions/upholstery__sam3_region_0/crop.jpg",
+            "image_url": "https://example.com/signed/upholstery__sam3_region_0.jpg",
+            "model_id": "test-model",
+            "dimensions": 3,
+        }
+    ]
+    assert repository.search_calls == []
+    assert search_repository.complete_run_calls == []
+    assert len(search_repository.fail_run_calls) == 1
+    assert search_repository.fail_run_calls[0]["run_id"] == run_id
+    assert "429 Too Many Requests" in search_repository.fail_run_calls[0]["error"]
 
 
 def test_segment_catalog_match_service_declines_unsupported_planner_intent():

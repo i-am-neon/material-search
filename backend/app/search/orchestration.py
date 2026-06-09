@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import TypedDict, TypeVar
 from urllib.parse import urlsplit, urlunsplit
 
-import httpx
 from langgraph.graph import END, StateGraph
 from pydantic import BaseModel
 
@@ -68,7 +67,7 @@ class RegionMatchWork:
 class PreparedRegionMatch:
     work: RegionMatchWork
     artifact: RegionArtifact
-    embedding: ImageEmbedding | None
+    embedding: ImageEmbedding
 
 
 class SearchGraphState(TypedDict, total=False):
@@ -537,37 +536,25 @@ class MaterialSearchGraph:
                     "crop_height": artifact.height,
                 }
             )
-            try:
-                embedding = self.region_matcher.embed_region(
-                    RegionMatchRequest(
-                        region_id=work.result_region_id,
-                        crop_object_key=artifact.object_key,
-                        crop_url=artifact.signed_url,
-                        material_filter_hint=_material_filter_hint(work.target),
-                        material_filter_hints=_material_filter_hints(work.target),
-                        model_id=request.model_id,
-                        dimensions=request.dimensions,
-                        limit=request.matches_per_region,
-                        min_similarity=request.min_similarity,
-                    )
+            embedding = self.region_matcher.embed_region(
+                RegionMatchRequest(
+                    region_id=work.result_region_id,
+                    crop_object_key=artifact.object_key,
+                    crop_url=artifact.signed_url,
+                    material_filter_hint=_material_filter_hint(work.target),
+                    material_filter_hints=_material_filter_hints(work.target),
+                    model_id=request.model_id,
+                    dimensions=request.dimensions,
+                    limit=request.matches_per_region,
+                    min_similarity=request.min_similarity,
                 )
-                active_span.set_attributes(
-                    {
-                        "embedding_model_id": embedding.model_id,
-                        "embedding_dimensions": embedding.dimensions,
-                        "embedding_fallback": False,
-                    }
-                )
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code != 429:
-                    raise
-                active_span.set_attributes(
-                    {
-                        "embedding_fallback": True,
-                        "fallback_reason": "embedding_service_429",
-                    }
-                )
-                embedding = None
+            )
+            active_span.set_attributes(
+                {
+                    "embedding_model_id": embedding.model_id,
+                    "embedding_dimensions": embedding.dimensions,
+                }
+            )
             return PreparedRegionMatch(work=work, artifact=artifact, embedding=embedding)
 
     def _match_prepared_region(
@@ -584,7 +571,6 @@ class MaterialSearchGraph:
             source_region_id=region.id,
             target_id=target.target_id,
             target_label=target.label,
-            embedding_fallback=prepared.embedding is None,
             limit=request.matches_per_region,
             min_similarity=request.min_similarity,
         ) as active_span:
@@ -599,10 +585,7 @@ class MaterialSearchGraph:
                 limit=request.matches_per_region,
                 min_similarity=request.min_similarity,
             )
-            if prepared.embedding is None:
-                match_set = self.region_matcher.match_fallback(match_request)
-            else:
-                match_set = self.region_matcher.match_embedding(match_request, prepared.embedding)
+            match_set = self.region_matcher.match_embedding(match_request, prepared.embedding)
             if self.search_run_repository is not None:
                 persisted_region = self.search_run_repository.create_region(
                     run_id=request.run_id,
