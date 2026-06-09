@@ -31,6 +31,7 @@ class PlannedMaterialTarget(BaseModel):
     label: str = Field(min_length=1, max_length=120)
     sam3_prompt: str = Field(min_length=1, max_length=160)
     material_family_hint: str | None = Field(default=None, max_length=80)
+    material_family_hints: list[str] = Field(default_factory=list, max_length=5)
     reason: str = Field(min_length=1, max_length=500)
     priority: int = Field(ge=1, le=20)
     max_regions: int = Field(default=2, ge=1, le=5)
@@ -43,6 +44,25 @@ class PlannedMaterialTarget(BaseModel):
             return None
         allowed = set(CATALOG_FILTER_CATEGORIES)
         return normalized if normalized in allowed else None
+
+    @field_validator("material_family_hints", mode="before")
+    @classmethod
+    def normalize_material_family_hints(cls, value: object) -> list[str]:
+        if value is None or value == "":
+            return []
+        values = [value] if isinstance(value, str) else value
+        if not isinstance(values, list):
+            return []
+
+        allowed = set(CATALOG_FILTER_CATEGORIES)
+        normalized_values: list[str] = []
+        for item in values:
+            if not isinstance(item, str):
+                continue
+            normalized = item.lower().replace("_", " ").replace("-", " ").strip()
+            if normalized in allowed and normalized not in normalized_values:
+                normalized_values.append(normalized)
+        return normalized_values
 
 
 class MaterialSearchPlan(BaseModel):
@@ -66,10 +86,16 @@ class RegionMatchRequest(BaseModel):
     crop_object_key: str = Field(min_length=1, max_length=1024)
     crop_url: HttpUrl | None = None
     material_filter_hint: str | None = Field(default=None, max_length=400)
+    material_filter_hints: list[str] = Field(default_factory=list, max_length=5)
     model_id: str = DEFAULT_EMBEDDING_MODEL_ID
     dimensions: int = DEFAULT_EMBEDDING_DIMENSIONS
     limit: int = Field(default=12, ge=1, le=100)
     min_similarity: float = Field(default=0.0, ge=-1.0, le=1.0)
+
+    @field_validator("material_filter_hints", mode="before")
+    @classmethod
+    def normalize_material_filter_hints(cls, value: object) -> list[str]:
+        return PlannedMaterialTarget.normalize_material_family_hints(value)
 
 
 class RankedRegionMatch(BaseModel):

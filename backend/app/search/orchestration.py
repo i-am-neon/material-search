@@ -201,6 +201,9 @@ class MaterialSearchGraph:
                     "target_count": len(plan.targets),
                     "target_ids": [target.target_id for target in plan.targets],
                     "target_labels": [target.label for target in plan.targets],
+                    "material_family_hints": [
+                        target.material_family_hints for target in plan.targets
+                    ],
                     "avoid_count": len(plan.avoid),
                     "unsupported": not plan.is_material_search,
                 }
@@ -478,6 +481,7 @@ class MaterialSearchGraph:
             target_id=target.target_id,
             target_label=target.label,
             material_family_hint=target.material_family_hint,
+            material_family_hints=target.material_family_hints,
             sam3_prompt=target.sam3_prompt,
             max_regions=work.max_regions,
             attempt_index=attempt_index,
@@ -540,6 +544,7 @@ class MaterialSearchGraph:
                         crop_object_key=artifact.object_key,
                         crop_url=artifact.signed_url,
                         material_filter_hint=_material_filter_hint(work.target),
+                        material_filter_hints=_material_filter_hints(work.target),
                         model_id=request.model_id,
                         dimensions=request.dimensions,
                         limit=request.matches_per_region,
@@ -588,6 +593,7 @@ class MaterialSearchGraph:
                 crop_object_key=artifact.object_key,
                 crop_url=artifact.signed_url,
                 material_filter_hint=_material_filter_hint(target),
+                material_filter_hints=_material_filter_hints(target),
                 model_id=request.model_id,
                 dimensions=request.dimensions,
                 limit=request.matches_per_region,
@@ -718,6 +724,13 @@ def _redact_url_match(match: re.Match[str]) -> str:
 
 def _material_filter_hint(target: PlannedMaterialTarget) -> str:
     return target.material_family_hint or ""
+
+
+def _material_filter_hints(target: PlannedMaterialTarget) -> list[str]:
+    hints = list(target.material_family_hints)
+    if target.material_family_hint and target.material_family_hint not in hints:
+        hints.insert(0, target.material_family_hint)
+    return hints
 
 
 def _failed_segmentations(segmentations: list[PlannedSegmentation]) -> list[PlannedSegmentation]:

@@ -131,6 +131,9 @@ class GeminiMaterialPlannerClient(MaterialPlannerClient):
                     "target_ids": [target.target_id for target in normalized.targets],
                     "target_labels": [target.label for target in normalized.targets],
                     "sam3_prompts": [target.sam3_prompt for target in normalized.targets],
+                    "material_family_hints": [
+                        target.material_family_hints for target in normalized.targets
+                    ],
                     "avoid_count": len(normalized.avoid),
                     "unsupported": not normalized.is_material_search,
                     "unsupported_reason": normalized.unsupported_reason,
@@ -291,7 +294,7 @@ Interpret the user's natural-language request and the image. Return JSON only.
 Plan concrete material targets that should be segmented with SAM3 and later matched
 against a product catalog. Preserve explicit negative constraints such as "avoid
 anything too glossy" in the avoid array.
-Choose the catalog filter for each target yourself using material_family_hint.
+Choose catalog filters for each target yourself using exact structured values.
 
 User request:
 {user_prompt}
@@ -304,9 +307,13 @@ Rules:
 - Across all targets, expect at most {max_regions} final regions.
 - If the user request is not asking for material search or material matching,
   set is_material_search to false, explain unsupported_reason, and return no targets.
-- material_family_hint must be one exact value from the available catalog filters
-  or null. Do not put colors, styles, locations, product words, or combined
-  phrases in material_family_hint.
+- material_family_hint must be the primary exact value from the available catalog
+  filters or null.
+- material_family_hints may include additional exact available catalog filters
+  the model judges should also be searched for the same target. Use this when
+  the visible material could reasonably belong to multiple catalog departments.
+- Do not put colors, styles, locations, product words, or combined phrases in
+  material_family_hint or material_family_hints.
 - sam3_prompt must be short and visual. It is a SAM3 segmentation prompt, not
   a search query.
 - Describe the visible region SAM3 should segment: color + material + surface
@@ -372,6 +379,7 @@ JSON shape:
       "label": "human label",
       "sam3_prompt": "visual segmentation prompt",
       "material_family_hint": "one exact available catalog filter or null",
+      "material_family_hints": ["additional exact available catalog filters"],
       "reason": "why this target matters",
       "priority": 1,
       "max_regions": 2
@@ -572,6 +580,7 @@ def _normalize_plan(
                     "priority": index,
                     "max_regions": target_regions,
                     "material_family_hint": target.material_family_hint or None,
+                    "material_family_hints": _normalize_family_hints(target),
                 }
             )
         )
@@ -584,6 +593,13 @@ def _normalize_plan(
             "targets": targets,
         }
     )
+
+
+def _normalize_family_hints(target: PlannedMaterialTarget) -> list[str]:
+    hints = list(target.material_family_hints)
+    if target.material_family_hint and target.material_family_hint not in hints:
+        hints.insert(0, target.material_family_hint)
+    return hints
 
 
 def _is_mood_board_plan(plan: MaterialSearchPlan, *, user_prompt: str) -> bool:

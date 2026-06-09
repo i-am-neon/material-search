@@ -83,6 +83,35 @@ def test_planner_eval_single_target_material_plan(monkeypatch):
     assert_segmentable_prompt(plan.targets[0].sam3_prompt)
 
 
+def test_planner_eval_keeps_only_structured_material_family_hints(monkeypatch):
+    plan = _plan_from_model_payload(
+        monkeypatch,
+        {
+            "user_intent_summary": "Find the counter material.",
+            "avoid": [],
+            "targets": [
+                {
+                    "target_id": "counter_surface",
+                    "label": "Counter Surface",
+                    "sam3_prompt": "gray veined counter surface",
+                    "material_family_hint": "stone",
+                    "material_family_hints": ["stone", "surface", "gray countertop"],
+                    "reason": (
+                        "The counter material could be filed under more than one catalog filter."
+                    ),
+                    "priority": 1,
+                    "max_regions": 1,
+                }
+            ],
+        },
+        prompt="Find the counter material.",
+        max_regions=1,
+    )
+
+    assert plan.targets[0].material_family_hint == "stone"
+    assert plan.targets[0].material_family_hints == ["stone", "surface"]
+
+
 def test_planner_eval_multiple_targets_respects_region_budget(monkeypatch):
     plan = _plan_from_model_payload(
         monkeypatch,
@@ -439,7 +468,7 @@ def test_planner_prompt_guides_mood_board_enumeration(monkeypatch):
     assert "Available catalog filters for material_family_hint" in prompt
     assert "tile, paint, surface, flooring, textile, leather" in prompt
     assert "hardware" in prompt
-    assert "material_family_hint must be one exact value" in compact_prompt
+    assert "material_family_hint must be the primary exact value" in compact_prompt
     assert "enumerate distinct visible material items as separate targets" in compact_prompt
     assert "return 8 to 12 targets" in compact_prompt
     assert "Do not stop at eight targets" in compact_prompt
@@ -453,6 +482,11 @@ def test_planner_prompt_guides_mood_board_enumeration(monkeypatch):
     assert "lower-right clusters" in compact_prompt
     assert "include both as separate targets" in compact_prompt
     assert 'use material_family_hint "hardware"' in compact_prompt
+    assert (
+        "material_family_hints may include additional exact available catalog filters"
+        in compact_prompt
+    )
+    assert "could reasonably belong to multiple catalog departments" in compact_prompt
     assert "paint chips" in prompt
     assert "max_regions: 1" in prompt
 

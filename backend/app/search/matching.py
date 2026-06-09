@@ -15,6 +15,8 @@ from app.search.schemas import (
 )
 
 _CATEGORY_CANDIDATE_MULTIPLIER = 4
+_MULTI_CATEGORY_CANDIDATE_MULTIPLIER = 8
+_MAX_CATEGORY_CANDIDATES = 200
 _CATALOG_FILTER_CATEGORY_SET = set(CATALOG_FILTER_CATEGORIES)
 
 
@@ -46,7 +48,7 @@ class RegionMatcher:
         _validate_embedding(embedding, request)
         model_id = embedding.model_id
         dimensions = embedding.dimensions
-        category_terms = _category_terms_for_hint(request.material_filter_hint)
+        category_terms = _category_terms_for_request(request)
         search_limit = _search_limit_for_category_filter(
             limit=request.limit,
             category_terms=category_terms,
@@ -75,7 +77,7 @@ class RegionMatcher:
         )
 
     def match_fallback(self, request: RegionMatchRequest) -> RegionMatchSet:
-        category_terms = _category_terms_for_hint(request.material_filter_hint)
+        category_terms = _category_terms_for_request(request)
         search_limit = _search_limit_for_category_filter(
             limit=request.limit,
             category_terms=category_terms,
@@ -115,7 +117,12 @@ def _search_limit_for_category_filter(
 ) -> int:
     if not category_terms:
         return limit
-    return min(100, limit * _CATEGORY_CANDIDATE_MULTIPLIER)
+    multiplier = (
+        _MULTI_CATEGORY_CANDIDATE_MULTIPLIER
+        if len(category_terms) > 1
+        else _CATEGORY_CANDIDATE_MULTIPLIER
+    )
+    return min(_MAX_CATEGORY_CANDIDATES, limit * multiplier)
 
 
 def _filter_matches_by_category(
@@ -128,14 +135,13 @@ def _filter_matches_by_category(
     return filtered or matches
 
 
-def _category_terms_for_hint(hint: str | None) -> set[str] | None:
-    if not hint:
-        return None
-
-    normalized_hint = _normalize_term(hint)
-    if normalized_hint not in _CATALOG_FILTER_CATEGORY_SET:
-        return None
-    return {normalized_hint}
+def _category_terms_for_request(request: RegionMatchRequest) -> set[str] | None:
+    terms: set[str] = set()
+    for hint in [request.material_filter_hint, *request.material_filter_hints]:
+        normalized_hint = _normalize_term(hint)
+        if normalized_hint in _CATALOG_FILTER_CATEGORY_SET:
+            terms.add(normalized_hint)
+    return terms or None
 
 
 def _catalog_item_matches(item: CatalogItem, category_terms: set[str]) -> bool:

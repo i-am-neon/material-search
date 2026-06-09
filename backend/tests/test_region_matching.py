@@ -323,6 +323,87 @@ def test_match_region_filters_visible_matches_by_leather_hint():
     ]
 
 
+def test_match_region_includes_model_selected_surface_alternate():
+    textile = CatalogMatch(
+        item=make_item(name="Cream Textile Card", material_family="textile"),
+        model_id="test-model",
+        similarity=0.98,
+    )
+    stone = CatalogMatch(
+        item=make_item(
+            name="Honed Limestone",
+            material_family="stone",
+            metadata={"source_category": "Masonry & Stone"},
+        ),
+        model_id="test-model",
+        similarity=0.95,
+    )
+    solid_surface = CatalogMatch(
+        item=make_item(
+            name="Swanstone Solid Surface - Charcoal Gray",
+            material_family="surface",
+            metadata={"source_category": "Surfaces", "materials": ["countertop", "slab"]},
+        ),
+        model_id="test-model",
+        similarity=0.91,
+    )
+    repository = RecordingCatalogRepository([textile, stone, solid_surface])
+    embedding_client = RecordingEmbeddingClient(
+        ImageEmbedding(model_id="test-model", dimensions=3, embedding=[0.1, 0.2, 0.3])
+    )
+
+    result = RegionMatcher(repository, embedding_client).match_region(
+        RegionMatchRequest(
+            region_id="countertop__sam3-region-1",
+            crop_object_key="runs/run-1/regions/countertop/crop.jpg",
+            material_filter_hint="stone",
+            material_filter_hints=["stone", "surface"],
+            model_id="test-model",
+            dimensions=3,
+            limit=2,
+        )
+    )
+
+    assert repository.search_calls[0]["limit"] == 16
+    assert [(ranked.rank, ranked.match.item.name) for ranked in result.matches] == [
+        (1, "Honed Limestone"),
+        (2, "Swanstone Solid Surface - Charcoal Gray"),
+    ]
+
+
+def test_match_region_does_not_expand_stone_hint_without_model_selected_alternate():
+    stone = CatalogMatch(
+        item=make_item(name="Honed Limestone", material_family="stone"),
+        model_id="test-model",
+        similarity=0.95,
+    )
+    solid_surface = CatalogMatch(
+        item=make_item(name="Swanstone Solid Surface - Charcoal Gray", material_family="surface"),
+        model_id="test-model",
+        similarity=0.91,
+    )
+    repository = RecordingCatalogRepository([stone, solid_surface])
+    embedding_client = RecordingEmbeddingClient(
+        ImageEmbedding(model_id="test-model", dimensions=3, embedding=[0.1, 0.2, 0.3])
+    )
+
+    result = RegionMatcher(repository, embedding_client).match_region(
+        RegionMatchRequest(
+            region_id="stone_floor__sam3-region-1",
+            crop_object_key="runs/run-1/regions/stone-floor/crop.jpg",
+            material_filter_hint="stone",
+            model_id="test-model",
+            dimensions=3,
+            limit=2,
+        )
+    )
+
+    assert repository.search_calls[0]["limit"] == 8
+    assert [(ranked.rank, ranked.match.item.name) for ranked in result.matches] == [
+        (1, "Honed Limestone"),
+    ]
+
+
 def test_match_region_filters_hardware_only_from_explicit_planner_category():
     brass_paint = CatalogMatch(
         item=make_item(name="Brass - Paint Finish", material_family="paint"),
