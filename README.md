@@ -2,7 +2,7 @@
 
 **Image-first material sourcing.** A designer uploads a reference image and describes the surfaces they want; the system plans material targets, segments the relevant regions, embeds the crops, and retrieves orderable catalog matches.
 
-Built for the Material Bank Applied AI Engineer brief as an end-to-end, production-shaped system — not a notebook demo. It runs on real model services (Gemini, Modal-hosted SAM3, SigLIP 2), durable async search runs, a real material catalog indexed into pgvector, and full-trace observability. There are no stubbed or local-only model paths.
+Built as an end-to-end, production-shaped system — not a notebook demo. It runs on real model services (Gemini, Modal-hosted SAM3, SigLIP 2), durable async search runs, a real material catalog indexed into pgvector, and full-trace observability. There are no stubbed or local-only model paths.
 
 **[Watch the demo video →](https://youtu.be/EiHJ7k3Hz8A)**.
 
@@ -194,7 +194,7 @@ Model behavior is the fragile part of a system like this, so it is guarded by ha
 The roadmap is deliberate, not aspirational:
 
 - **Live-service expansion** (`docs/evals/model-evals-todo.md`) — a small real-image fixture set with high-level assertions (regions above threshold, bounded crops) run against the live SAM3 endpoint, gated separately from CI.
-- **Feedback-to-eval pipeline** (`docs/architecture/future-eval-architecture.md`) — real Material Bank workflow signals (saving a material, ordering a sample, reformulating a search) surface eval *candidates* for human review. User behavior flags examples; it never becomes ground truth automatically.
+- **Feedback-to-eval pipeline** (`docs/architecture/future-eval-architecture.md`) — real product workflow signals (saving a material, ordering a sample, reformulating a search) surface eval *candidates* for human review. User behavior flags examples; it never becomes ground truth automatically.
 
 ## Observability
 
@@ -222,7 +222,7 @@ Everything deploys from `main` through GitHub Actions (`.github/workflows/`):
 
 ## Engineering Trade-offs
 
-The brief asks for systems that balance speed, scalability, latency, cost, and accuracy. The decisions here are explicit:
+A system like this has to balance speed, scalability, latency, cost, and accuracy. The decisions here are explicit:
 
 | Decision | Trade-off |
 | --- | --- |
@@ -246,7 +246,7 @@ The repo includes mood-board planner evals that make this limitation visible on 
 
 This keeps the current build cost-bounded while showing the intended production path: proposal, validation, refinement, classification, retrieval.
 
-## Why This Matters for Material Bank
+## Why This Matters
 
 Material sourcing from images is not object detection. The system has to translate a designer's intent into segmentable visual surfaces, recover when a model prompt is too narrow, and connect regions to *orderable* catalog data. The graph structure is built to make that loop inspectable and improvable: every failed prompt, repaired prompt, region, crop, embedding, and match is persisted and can be evaluated.
 
