@@ -6,7 +6,7 @@ Project-local instructions for agents working in this repo.
 
 ## Project Context
 
-This repo is a fresh rewrite seed for a Material Bank interview project. Do not port the old `sam3-learning` implementation directly. Treat the architecture docs as the source of truth:
+This repo is a fresh rewrite seed for an image-first material sourcing project. Do not port the old `sam3-learning` implementation directly. Treat the architecture docs as the source of truth:
 
 - `docs/architecture/cloud-material-finder.md`
 - `docs/architecture/future-eval-architecture.md`

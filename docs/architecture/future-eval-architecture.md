@@ -36,6 +36,6 @@ User behavior should flag eval candidates, not create ground truth automatically
 - Was the catalog match visually/materially useful?
 - If the result failed, was the issue concept planning, segmentation, embedding retrieval, ranking, metadata, or catalog coverage?
 
-## Interview Framing
+## Framing
 
-The system should not blindly evaluate from user behavior. The stronger approach is to use Material Bank-specific workflow signals to surface high-value examples for human curation. Those reviewed examples become a representative eval set for comparing prompt changes, model upgrades, segmentation thresholds, embedding models, reranking strategies, and catalog metadata quality.
+The system should not blindly evaluate from user behavior. The stronger approach is to use product-specific workflow signals to surface high-value examples for human curation. Those reviewed examples become a representative eval set for comparing prompt changes, model upgrades, segmentation thresholds, embedding models, reranking strategies, and catalog metadata quality.

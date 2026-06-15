@@ -11,7 +11,7 @@ source .venv/bin/activate
 uv pip install --python .venv/bin/python -e ".[dev]"
 ```
 
-Create `backend/.env`. For this interview project, local development and prod
+Create `backend/.env`. In this project, local development and prod
 use the same real service values to keep the demo path simple. Use the Supabase
 pooler connection string for `DATABASE_URL`; the direct database host can be
 IPv6-only and is less reliable from local machines and CI:

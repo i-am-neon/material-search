@@ -8,14 +8,13 @@
 
 `material-search` lets a designer drop a reference image, runs SAM3 segmentation to detect
 material surfaces, vector-matches each surface against an orderable catalog, and lets the user
-collect samples. It is a portfolio piece for an Applied AI Engineer role at **Material Bank** — a
-company whose brand is built on taste for the architecture & design (A&D) world. The visual bar is
-therefore as important as the AI.
+collect samples. It is a portfolio piece aimed at the architecture & design (A&D) world, where
+taste and brand matter. The visual bar is therefore as important as the AI.
 
 **Problem with the current UI.** Once a search runs, intake, pipeline status, the region canvas,
 and results all appear at once in a dense three-column `workspace-grid` (`SearchWorkbench.tsx:186`).
 There is no hierarchy and no sense of progression. The styling leans on Inter and a forest-green
-accent — generic, and not aligned with Material Bank's near-monochrome brand.
+accent — generic, and not aligned with the near-monochrome, editorial brand the A&D world expects.
 
 **Goal.** Re-architect the experience into two distinct phases with a deliberate seam between them,
 and a refined grayscale, editorial design language where the *materials* are the only color.
@@ -121,7 +120,7 @@ No chromatic accent. Selected/active states use ink. Similarity badges are ink o
 All color comes from material imagery (catalog photos in production; CSS textures in the mockup).
 
 ### Voice
-Use Material Bank's verbs: **search → sample → specify**. Labels: "Sample · Free", "Order samples",
+Use the A&D sourcing vocabulary: **search → sample → specify**. Labels: "Sample · Free", "Order samples",
 "Specification" — not generic e-commerce phrasing.
 
 ### Motion (restrained)
