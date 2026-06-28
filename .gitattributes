@@ -1,0 +1,3 @@
+# Scraped catalog gallery pages are source data, not application code.
+# Exclude them from GitHub's language statistics (Linguist).
+data/catalog/*.html linguist-vendored
